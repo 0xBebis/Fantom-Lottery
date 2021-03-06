@@ -86,11 +86,16 @@ contract Lotto is ILotto {
       lottos[currentLotto].lastDraw = _timestamp();
       return bytes32(0);
     } else {
-      lottos[currentLotto].winningTicket = winner;
-      lottos[currentLotto].lastDraw = _timestamp();
-      finalAccounting();
+      payWinner(winner);
       return winner;
     }
+  }
+
+  function payWinner(bytes32 _winner) internal returns (bool) {
+    lottos[currentLotto].winningTicket = _winner;
+    lottos[currentLotto].lastDraw = _timestamp();
+    finalAccounting();
+    return true;
   }
 
   function selectWinningTicket(uint _luckyNumber) internal view returns (bytes32) {
