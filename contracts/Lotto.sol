@@ -6,19 +6,19 @@ interface ILotto {
   function startNewRound() external returns (bool);
 }
 
-abstract contract Lotto is ILotto {
+contract Lotto is ILotto {
 
   string public name;
-  address public owner;
+  address public feeRecipient;
 
   uint public constant ethDecimals = 1000000000000000000;
   uint public constant fee = 10000000000000000; // 1%
 
-  constructor(uint _drawFrequency, uint _ticketPrice, string memory _name) {
-    drawFrequency = _drawFrequency*86400;
-    ticketPrice = _ticketPrice;
+  constructor(uint _drawFrequency, uint _ticketPrice, string memory _name, address _feeRecipient) {
+    drawFrequency = _drawFrequency*3600;
+    ticketPrice = _ticketPrice*100000000000000000;
     name = _name;
-    owner = msg.sender;
+    feeRecipient = _feeRecipient;
   }
 
   uint immutable drawFrequency;
@@ -130,7 +130,7 @@ abstract contract Lotto is ILotto {
     uint _winnerCount = _winners.length;
 
     uint winnings = calculateWinnings();
-    debtToUser[owner] += lottos[currentLotto].totalPot - winnings;
+    debtToUser[feeRecipient] += lottos[currentLotto].totalPot - winnings;
     uint winningsPerUser = (winnings / _winnerCount);
 
     assert((winningsPerUser*_winnerCount) < lottos[currentLotto].totalPot);
