@@ -6,6 +6,14 @@ interface ILotto {
   function startNewRound() external returns (bool);
 }
 
+pragma solidity 0.8.0;
+
+interface ILotto {
+  function draw() external returns (bytes32);
+  function enter(uint luckyNumber) external payable returns (bytes32);
+  function startNewRound() external returns (bool);
+}
+
 contract Lotto is ILotto {
 
   string public name;
@@ -25,6 +33,7 @@ contract Lotto is ILotto {
   uint immutable ticketPrice;
 
   uint public currentLotto;
+  uint public currentDraw;
   uint public ticketCounter;
 
   struct Lottery {
@@ -40,7 +49,7 @@ contract Lotto is ILotto {
 
   struct Ticket {
     address[] owners;
-    uint[5] ticketNumber;
+    uint ticketNumber;
   }
 
 	mapping (uint => Lottery) lottos;
@@ -55,6 +64,22 @@ contract Lotto is ILotto {
     currentLotto++;
     lottos[currentLotto] = Lottery(_timestamp(), _timestamp(), 0, 0, bytes32(0), false);
     return true;
+  }
+  //threshold check for setting lottery difficulty
+  function gravityWell() public returns (uint256) {
+    uint256 lottoModulus;
+
+    if (lottos[currentLotto].totalParticipants < 10){
+      lottoModulus = 2; //10*10
+    }else if (lottos[currentLotto].totalParticipants < 100){
+      lottoModulus = 3; //10*10*10
+    }else if (lottos[currentLotto].totalParticipants < 1000){
+      lottoModulus = 4; //10^4
+    }else
+      lottoModulus = 5;
+    }
+
+  	return lottoModulus;
   }
 
   function enter(uint luckyNumber) public override payable returns (bytes32) {
@@ -72,7 +97,6 @@ contract Lotto is ILotto {
 
     bytes32 ticketID = createNewTicket(luckyNumber);
     return ticketID;
-
   }
 
   function draw() public override returns (bytes32) {
@@ -84,9 +108,11 @@ contract Lotto is ILotto {
 
     if (winner == bytes32(0)) {
       lottos[currentLotto].lastDraw = _timestamp();
+      currentDraw++;
       return bytes32(0);
     } else {
       payWinner(winner);
+      currentDraw = 0;
       return winner;
     }
   }
@@ -100,7 +126,7 @@ contract Lotto is ILotto {
 
   function selectWinningTicket(uint _luckyNumber) internal view returns (bytes32) {
 
-    uint[5] memory winningNumber = generateTicketNumber(_luckyNumber);
+    uint winningNumber = generateTicketNumber(_luckyNumber);
     bytes32 winningID = generateTicketID(winningNumber);
 
     if (tickets[winningID].owners.length > 0) {
@@ -112,7 +138,7 @@ contract Lotto is ILotto {
 
   function createNewTicket(uint _luckyNumber) internal returns (bytes32) {
 
-    uint[5] memory ticketNumber = generateTicketNumber(_luckyNumber);
+    uint ticketNumber = generateTicketNumber(_luckyNumber);
     bytes32 _ticketID = generateTicketID(ticketNumber);
 
     if (tickets[_ticketID].owners.length > 0) {
@@ -143,20 +169,11 @@ contract Lotto is ILotto {
     for (uint i; i < _winners.length; i++) {
       debtToUser[_winners[i]] += winningsPerUser;
     }
-
     return true;
   }
 
-  function generateTicketNumber(uint _luckyNumber) internal view returns (uint[5] memory _ticketNumber) {
-    _ticketNumber[0] = generateRandomNumber(_luckyNumber);
-    _luckyNumber++;
-    _ticketNumber[1] = generateRandomNumber(_luckyNumber);
-    _luckyNumber++;
-    _ticketNumber[2] = generateRandomNumber(_luckyNumber);
-    _luckyNumber++;
-    _ticketNumber[3] = generateRandomNumber(_luckyNumber);
-    _luckyNumber++;
-    _ticketNumber[4] = generateRandomNumber(_luckyNumber);
+  function generateTicketNumber(uint _luckyNumber) internal view returns (uint _ticketNumber) {
+    _ticketNumber = generateRandomNumber(_luckyNumber);
     return _ticketNumber;
   }
 
@@ -168,8 +185,8 @@ contract Lotto is ILotto {
     return _winnings;
   }
 
-  function generateTicketID (uint[5] memory _ticketNumber) internal view returns (bytes32) {
-    bytes32 _ticketID = keccak256(abi.encodePacked(currentLotto, _ticketNumber[0], _ticketNumber[1], _ticketNumber[2], _ticketNumber[3], _ticketNumber[4]));
+  function generateTicketID (uint _ticketNumber) internal view returns (bytes32) {
+    bytes32 _ticketID = keccak256(abi.encodePacked(currentLotto, currentDraw, _ticketNumber));
     return _ticketID;
   }
 
@@ -182,8 +199,8 @@ contract Lotto is ILotto {
   }
 
 	function feeCalc(uint _total) internal pure returns (uint) {
-      uint _rake = (_total * fee) / ethDecimals;
-      return(_rake);
+    uint _rake = (_total * fee) / ethDecimals;
+    return(_rake);
   }
 
 	function _sender() internal view returns (address) {
