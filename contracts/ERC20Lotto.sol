@@ -57,29 +57,12 @@ contract Lotto is IERC20Lotto {
     lottos[currentLotto] = Lottery(_timestamp(), _timestamp(), 0, 0, bytes32(0), false);
     return true;
   }
-  //threshold check for setting lottery difficulty
-  function gravityWell() public returns (uint256) {
-    uint256 lottoModulus;
 
-    if (lottos[currentLotto].totalParticipants < 10){
-      lottoModulus = 2; //10*10
-    }else if (lottos[currentLotto].totalParticipants < 100){
-      lottoModulus = 3; //10*10*10
-    }else if (lottos[currentLotto].totalParticipants < 1000){
-      lottoModulus = 4; //10^4
-    }else
-      lottoModulus = 5;
-    }
-
-  	return lottoModulus;
-  }
-
-  function enter(uint _luckyNumber) public override payable returns (bytes32) {
+  function enter() public override payable returns (bytes32) {
     require (msg.value == ticketPrice, "Wrong amount.");
     require (lottos[currentLotto].finished = false, "a winner has already been selected. please start a new lottery.");
 
     uint payment = msg.value;
-
 
     ticketCounter++;
     lottos[currentLotto].totalPot += payment;
@@ -88,7 +71,7 @@ contract Lotto is IERC20Lotto {
       lottos[currentLotto].totalParticipants++;
     }
 
-    bytes32 ticketID = createNewTicket(luckyNumber);
+    bytes32 ticketID = createNewTicket();
     return ticketID;
   }
 
@@ -97,7 +80,7 @@ contract Lotto is IERC20Lotto {
     require (lottos[currentLotto].finished = false, "a winner has already been selected. please start a new lottery.");
 
     uint luckyNumber = generateRandomNumber();
-    bytes32 winner = selectWinningTicket(luckyNumber);
+    bytes32 winner = selectWinningTicket();
 
     if (winner == bytes32(0)) {
       lottos[currentLotto].lastDraw = _timestamp();

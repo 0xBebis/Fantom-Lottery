@@ -1,12 +1,12 @@
 pragma solidity 0.8.0;
 
-interface ILotto {
+interface IERC20Lotto {
   function draw() external returns (bytes32);
-  function enter(uint luckyNumber) external payable returns (bytes32);
+  function enter() external payable returns (bytes32);
   function startNewRound() external returns (bool);
 }
 
-contract Lotto is ILotto {
+contract Lotto is IERC20Lotto {
 
   string public name;
   address public feeRecipient;
@@ -31,7 +31,6 @@ contract Lotto is ILotto {
   struct Lottery {
     uint startTime;
     uint lastDraw;
-    uint luckyNumber;
 
     uint totalPot;
     uint totalParticipants;
@@ -48,9 +47,9 @@ contract Lotto is ILotto {
 	mapping (uint => Lottery) lottos;
 
   //user-specific mappings per lotto
-	mapping (bytes32 => Ticket) tickets;
-  mapping (uint => mapping(address => bool)) hasEntered;
-  mapping (address => uint) debtToUser;
+	mapping (bytes32 => Ticket) public tickets;
+  mapping (uint => mapping(address => bool)) public hasEntered;
+  mapping (address => uint) public debtToUser;
 
   function startNewRound() public override returns (bool) {
     require(lottos[currentLotto].finished, "previous lottery has not finished");
@@ -58,29 +57,12 @@ contract Lotto is ILotto {
     lottos[currentLotto] = Lottery(_timestamp(), _timestamp(), 0, 0, bytes32(0), false);
     return true;
   }
-  //threshold check for setting lottery difficulty
-  function gravityWell() public returns (uint256) {
-    uint256 lottoModulus;
 
-    if (lottos[currentLotto].totalParticipants < 10){
-      lottoModulus = 2; //10*10
-    }else if (lottos[currentLotto].totalParticipants < 100){
-      lottoModulus = 3; //10*10*10
-    }else if (lottos[currentLotto].totalParticipants < 1000){
-      lottoModulus = 4; //10^4
-    }else
-      lottoModulus = 5;
-    }
-
-  	return lottoModulus;
-  }
-
-  function enter(uint _luckyNumber) public override payable returns (bytes32) {
+  function enter() public override payable returns (bytes32) {
     require (msg.value == ticketPrice, "Wrong amount.");
     require (lottos[currentLotto].finished = false, "a winner has already been selected. please start a new lottery.");
 
     uint payment = msg.value;
-
 
     ticketCounter++;
     lottos[currentLotto].totalPot += payment;
@@ -89,7 +71,7 @@ contract Lotto is ILotto {
       lottos[currentLotto].totalParticipants++;
     }
 
-    bytes32 ticketID = createNewTicket(luckyNumber);
+    bytes32 ticketID = createNewTicket();
     return ticketID;
   }
 
@@ -97,8 +79,8 @@ contract Lotto is ILotto {
     require (_timestamp() - lottos[currentLotto].lastDraw >= drawFrequency, "Not enough time elapsed from last draw");
     require (lottos[currentLotto].finished = false, "a winner has already been selected. please start a new lottery.");
 
-    uint luckyNumber = generateRandomNumber(ticketCounter);
-    bytes32 winner = selectWinningTicket(luckyNumber);
+    uint luckyNumber = generateRandomNumber();
+    bytes32 winner = selectWinningTicket();
 
     if (winner == bytes32(0)) {
       lottos[currentLotto].lastDraw = _timestamp();
@@ -118,9 +100,8 @@ contract Lotto is ILotto {
     return true;
   }
 
-  function selectWinningTicket(uint _luckyNumber) internal view returns (bytes32) {
-
-    uint winningNumber = generateTicketNumber(_luckyNumber);
+  function selectWinningTicket() internal view returns (bytes32) {
+    uint winningNumber = generateTicketNumber();
     bytes32 winningID = generateTicketID(winningNumber);
 
     if (tickets[winningID].owners.length > 0) {
@@ -130,9 +111,9 @@ contract Lotto is ILotto {
     }
   }
 
-  function createNewTicket(uint _luckyNumber) internal returns (bytes32) {
+  function createNewTicket() internal returns (bytes32) {
 
-    uint ticketNumber = generateTicketNumber(_luckyNumber);
+    uint ticketNumber = generateTicketNumber();
     bytes32 _ticketID = generateTicketID(ticketNumber);
 
     if (tickets[_ticketID].owners.length > 0) {
@@ -166,8 +147,8 @@ contract Lotto is ILotto {
     return true;
   }
 
-  function generateTicketNumber(uint _luckyNumber) internal view returns (uint _ticketNumber) {
-    _ticketNumber = generateRandomNumber(_luckyNumber);
+  function generateTicketNumber() internal view returns (uint _ticketNumber) {
+    _ticketNumber = generateRandomNumber();
     return _ticketNumber;
   }
 
@@ -179,13 +160,13 @@ contract Lotto is ILotto {
     return _winnings;
   }
 
-  function generateTicketID (uint _ticketNumber) internal view returns (bytes32) {
+  function generateTicketID(uint _ticketNumber) internal view returns (bytes32) {
     bytes32 _ticketID = keccak256(abi.encodePacked(currentLotto, currentDraw, _ticketNumber));
     return _ticketID;
   }
 
-  function generateRandomNumber(uint salt) internal view returns (uint) {
-    return (uint(keccak256(abi.encodePacked(block.timestamp, block.number, salt))) % 10);
+  function generateRandomNumber() internal view returns (uint) {
+    return (uint(keccak256(abi.encodePacked(block.timestamp, block.number, ticketCounter))) % 10);
   }
 
   function viewTicket(bytes32 _ticketID) internal view returns (Ticket memory) {
