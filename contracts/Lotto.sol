@@ -1,20 +1,35 @@
 pragma solidity 0.8.0;
 
+import "./ReentrancyGuard";
+
 interface IERC20Lotto {
   function draw() external returns (bytes32);
   function enter() external payable returns (bytes32);
   function startNewRound() external returns (bool);
+
+  function viewName() external view returns (string memory);
+  function viewWinnings() external view returns (uint);
+  function viewLotto(uint lottoNumber) external view returns (Lotto memory);
+  function viewTicket(bytes32 _ticketID) external view returns (Ticket memory);
+  function viewTicketPrice() external view returns (uint);
+  function viewLottoNumber() external view returns (uint);
+  function viewOdds() external view returns (uint);
+  function viewDrawNumber() external view returns (uint);
+  function viewDrawFrequency() external view returns (uint);
+  function viewTicketCount() external view returns (uint);
+  function viewFee() external view returns (uint);
 }
 
 contract Lotto is IERC20Lotto {
 
   string public name;
   address public feeRecipient;
+  uint fundsRaised;
 
   uint public constant ethDecimals = 1000000000000000000;
-  uint public constant fee = 10000000000000000; // 1%
+  uint public constant fee = 30000000000000000; // 3%
 
-  constructor(uint _drawFrequency, uint _ticketPrice, string memory _name, address _feeRecipient) {
+  constructor(uint _drawFrequency, uint _ticketPrice, string memory _name, address _feeRecipient, uint modulus) {
     drawFrequency = _drawFrequency*3600;
     ticketPrice = _ticketPrice*100000000000000000;
     name = _name;
@@ -23,6 +38,7 @@ contract Lotto is IERC20Lotto {
 
   uint immutable drawFrequency;
   uint immutable ticketPrice;
+  uint immutable modulus;
 
   uint public currentLotto;
   uint public currentDraw;
@@ -51,14 +67,14 @@ contract Lotto is IERC20Lotto {
   mapping (uint => mapping(address => bool)) public hasEntered;
   mapping (address => uint) public debtToUser;
 
-  function startNewRound() public override returns (bool) {
+  function startNewRound() public override nonReentrant returns (bool) {
     require(lottos[currentLotto].finished, "previous lottery has not finished");
     currentLotto++;
     lottos[currentLotto] = Lottery(_timestamp(), _timestamp(), 0, 0, bytes32(0), false);
     return true;
   }
 
-  function enter() public override payable returns (bytes32) {
+  function enter() public override payable nonReentrant returns (bytes32) {
     require (msg.value == ticketPrice, "Wrong amount.");
     require (lottos[currentLotto].finished = false, "a winner has already been selected. please start a new lottery.");
 
@@ -75,7 +91,7 @@ contract Lotto is IERC20Lotto {
     return ticketID;
   }
 
-  function draw() public override returns (bytes32) {
+  function draw() public override nonReentrant returns (bytes32) {
     require (_timestamp() - lottos[currentLotto].lastDraw >= drawFrequency, "Not enough time elapsed from last draw");
     require (lottos[currentLotto].finished = false, "a winner has already been selected. please start a new lottery.");
 
@@ -147,8 +163,9 @@ contract Lotto is IERC20Lotto {
     return true;
   }
 
-  function generateTicketNumber() internal view returns (uint _ticketNumber) {
-    _ticketNumber = generateRandomNumber();
+  function generateTicketNumber() internal view returns (uint) {
+    uint _rando = generateRandomNumber();
+    uint _ticketNumber = _rando % modulus;
     return _ticketNumber;
   }
 
@@ -169,13 +186,53 @@ contract Lotto is IERC20Lotto {
     return (uint(keccak256(abi.encodePacked(block.timestamp, block.number, ticketCounter))) % 10);
   }
 
-  function viewTicket(bytes32 _ticketID) internal view returns (Ticket memory) {
-    return tickets[_ticketID];
-  }
-
 	function feeCalc(uint _total) internal pure returns (uint) {
     uint _rake = (_total * fee) / ethDecimals;
     return(_rake);
+  }
+
+  function viewName() public view returns (string memory) {
+    return name;
+  }
+
+  function viewWinnings() public view returns (uint) {
+    return debtToUser[_sender()];
+  }
+
+  function viewLotto(uint lottoNumber) public view returns (Lotto memory) {
+    return lottos[lottoNumber];
+  }
+
+  function viewTicket(bytes32 _ticketID) public view returns (Ticket memory) {
+    return tickets[_ticketID];
+  }
+
+  function viewTicketPrice() public view returns (uint) {
+    return ticketPrice;
+  }
+
+  function viewLottoNumber() public view returns (uint) {
+    return currentLotto;
+  }
+
+  function viewOdds() public view returns (uint) {
+    return (10**modulus);
+  }
+
+  function viewDrawNumber() public view returns (uint) {
+    return currentDraw;
+  }
+
+  function viewDrawFrequency() public view returns (uint) {
+    return drawFrequency;
+  }
+
+  function viewTicketCount() public view returns (uint) {
+    return ticketCounter;
+  }
+
+  function viewFee() public view returns (uint) {
+    return fee;
   }
 
 	function _sender() internal view returns (address) {
