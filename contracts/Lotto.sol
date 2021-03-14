@@ -120,6 +120,8 @@ contract Lotto is IERC20Lotto, ReentrancyGuard {
     debtToUser[_sender()] = 0;
     payable(_sender()).transfer(winnings);
 
+    assert(debtToUser[_sender()] == 0);
+
     return true;
   }
 
