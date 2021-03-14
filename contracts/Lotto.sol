@@ -1,17 +1,32 @@
 pragma solidity 0.8.0;
 
-import "./ReentrancyGuard";
+import "./ReentrancyGuard.sol";
+import "./IERC20.sol";
+
+struct Lottery {
+  uint startTime;
+  uint lastDraw;
+
+  uint totalPot;
+  uint totalParticipants;
+
+  bytes32 winningTicket;
+  bool finished;
+}
 
 interface IERC20Lotto {
   function draw() external returns (bytes32);
   function enter() external payable returns (bytes32);
   function startNewRound() external returns (bool);
+  function getPaid() external returns (bool);
 
   function viewName() external view returns (string memory);
   function viewWinnings() external view returns (uint);
-  function viewLotto(uint lottoNumber) external view returns (Lotto memory);
-  function viewTicket(bytes32 _ticketID) external view returns (Ticket memory);
   function viewTicketPrice() external view returns (uint);
+  function viewLotto(uint lottoNumber) external view returns (Lottery memory);
+  function viewTicketNumber(bytes32 _ticketID) external view returns (uint);
+  function viewTicketHolders(bytes32 _ticketID) external view returns (address[] memory);
+  function readyToDraw() external view returns (bool);
   function viewLottoNumber() external view returns (uint);
   function viewOdds() external view returns (uint);
   function viewDrawNumber() external view returns (uint);
@@ -20,7 +35,7 @@ interface IERC20Lotto {
   function viewFee() external view returns (uint);
 }
 
-contract Lotto is IERC20Lotto {
+contract Lotto is IERC20Lotto, ReentrancyGuard {
 
   string public name;
   address public feeRecipient;
@@ -28,13 +43,6 @@ contract Lotto is IERC20Lotto {
 
   uint public constant ethDecimals = 1000000000000000000;
   uint public constant fee = 30000000000000000; // 3%
-
-  constructor(uint _drawFrequency, uint _ticketPrice, string memory _name, address _feeRecipient, uint modulus) {
-    drawFrequency = _drawFrequency*3600;
-    ticketPrice = _ticketPrice*100000000000000000;
-    name = _name;
-    feeRecipient = _feeRecipient;
-  }
 
   uint immutable drawFrequency;
   uint immutable ticketPrice;
@@ -44,15 +52,12 @@ contract Lotto is IERC20Lotto {
   uint public currentDraw;
   uint public ticketCounter;
 
-  struct Lottery {
-    uint startTime;
-    uint lastDraw;
-
-    uint totalPot;
-    uint totalParticipants;
-
-    bytes32 winningTicket;
-    bool finished;
+  constructor(uint _drawFrequency, uint _ticketPrice, string memory _name, address _feeRecipient, uint _modulus) {
+    drawFrequency = _drawFrequency*3600;
+    ticketPrice = _ticketPrice*100000000000000000;
+    name = _name;
+    feeRecipient = _feeRecipient;
+    modulus = _modulus;
   }
 
   struct Ticket {
@@ -92,14 +97,13 @@ contract Lotto is IERC20Lotto {
   }
 
   function draw() public override nonReentrant returns (bytes32) {
-    require (_timestamp() - lottos[currentLotto].lastDraw >= drawFrequency, "Not enough time elapsed from last draw");
-    require (lottos[currentLotto].finished = false, "a winner has already been selected. please start a new lottery.");
+    require (readyToDraw(), "Not enough time elapsed from last draw");
+    require (!lottos[currentLotto].finished, "current lottery is over. please start a new one.");
 
-    uint luckyNumber = generateRandomNumber();
     bytes32 winner = selectWinningTicket();
+    lottos[currentLotto].lastDraw = _timestamp();
 
     if (winner == bytes32(0)) {
-      lottos[currentLotto].lastDraw = _timestamp();
       currentDraw++;
       return bytes32(0);
     } else {
@@ -109,9 +113,18 @@ contract Lotto is IERC20Lotto {
     }
   }
 
+  function getPaid() public override nonReentrant returns (bool) {
+    require(debtToUser[_sender()] != 0, "you have no winnings to claim");
+
+    uint winnings = debtToUser[_sender()];
+    debtToUser[_sender()] = 0;
+    payable(_sender()).transfer(winnings);
+
+    return true;
+  }
+
   function payWinner(bytes32 _winner) internal returns (bool) {
     lottos[currentLotto].winningTicket = _winner;
-    lottos[currentLotto].lastDraw = _timestamp();
     finalAccounting();
     return true;
   }
@@ -144,7 +157,6 @@ contract Lotto is IERC20Lotto {
   }
 
   function finalAccounting() internal returns (bool) {
-    require(!lottos[currentLotto].finished, "lottery is not finished");
 
     lottos[currentLotto].finished = true;
     bytes32 _winningTicket = lottos[currentLotto].winningTicket;
@@ -152,7 +164,9 @@ contract Lotto is IERC20Lotto {
     uint _winnerCount = _winners.length;
 
     uint winnings = calculateWinnings();
-    debtToUser[feeRecipient] += lottos[currentLotto].totalPot - winnings;
+    uint _fundsRaised = lottos[currentLotto].totalPot - winnings;
+    debtToUser[feeRecipient] += _fundsRaised;
+    fundsRaised += _fundsRaised;
     uint winningsPerUser = (winnings / _winnerCount);
 
     assert((winningsPerUser*_winnerCount) < lottos[currentLotto].totalPot);
@@ -191,47 +205,55 @@ contract Lotto is IERC20Lotto {
     return(_rake);
   }
 
-  function viewName() public view returns (string memory) {
+  function readyToDraw() public view override returns (bool) {
+    return (_timestamp() - lottos[currentLotto].lastDraw >= drawFrequency);
+  }
+
+  function viewName() public view override returns (string memory) {
     return name;
   }
 
-  function viewWinnings() public view returns (uint) {
+  function viewWinnings() public view override returns (uint) {
     return debtToUser[_sender()];
   }
 
-  function viewLotto(uint lottoNumber) public view returns (Lotto memory) {
+  function viewLotto(uint lottoNumber) public view override returns (Lottery memory) {
     return lottos[lottoNumber];
   }
 
-  function viewTicket(bytes32 _ticketID) public view returns (Ticket memory) {
-    return tickets[_ticketID];
+  function viewTicketNumber(bytes32 _ticketID) public view override returns (uint) {
+    return tickets[_ticketID].ticketNumber;
   }
 
-  function viewTicketPrice() public view returns (uint) {
+  function viewTicketHolders(bytes32 _ticketID) public view override returns (address[] memory) {
+    return tickets[_ticketID].owners;
+  }
+
+  function viewTicketPrice() public view override returns (uint) {
     return ticketPrice;
   }
 
-  function viewLottoNumber() public view returns (uint) {
+  function viewLottoNumber() public view override returns (uint) {
     return currentLotto;
   }
 
-  function viewOdds() public view returns (uint) {
+  function viewOdds() public view override returns (uint) {
     return (10**modulus);
   }
 
-  function viewDrawNumber() public view returns (uint) {
+  function viewDrawNumber() public view override returns (uint) {
     return currentDraw;
   }
 
-  function viewDrawFrequency() public view returns (uint) {
+  function viewDrawFrequency() public view override returns (uint) {
     return drawFrequency;
   }
 
-  function viewTicketCount() public view returns (uint) {
+  function viewTicketCount() public view override returns (uint) {
     return ticketCounter;
   }
 
-  function viewFee() public view returns (uint) {
+  function viewFee() public pure override returns (uint) {
     return fee;
   }
 
@@ -241,5 +263,15 @@ contract Lotto is IERC20Lotto {
 
   function _timestamp() internal view returns (uint) {
     return block.timestamp;
+  }
+
+  function withdraw(address tokenAddress) public returns (bool) {
+    require(_sender() == feeRecipient, "must be the fee recipient");
+    IERC20 token = IERC20(tokenAddress);
+    uint256 tokenBalance = token.balanceOf(address(this));
+    if (tokenBalance > 0) {
+      token.transfer(feeRecipient, tokenBalance);
+    }
+    return true;
   }
 }
