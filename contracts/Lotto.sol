@@ -32,6 +32,7 @@ interface IERC20Lotto {
   function viewDrawNumber() external view returns (uint);
   function viewDrawFrequency() external view returns (uint);
   function viewTicketCount() external view returns (uint);
+  function viewFeeRecipient() external view returns (address);
   function viewFee() external view returns (uint);
 }
 
@@ -53,8 +54,8 @@ contract Lotto is IERC20Lotto, ReentrancyGuard {
   uint public ticketCounter;
 
   constructor(uint _drawFrequency, uint _ticketPrice, string memory _name, address _feeRecipient, uint _modulus) {
-    drawFrequency = _drawFrequency*3600;
-    ticketPrice = _ticketPrice*100000000000000000;
+    drawFrequency = _drawFrequency;
+    ticketPrice = _ticketPrice;
     name = _name;
     feeRecipient = _feeRecipient;
     modulus = _modulus;
@@ -73,7 +74,9 @@ contract Lotto is IERC20Lotto, ReentrancyGuard {
   mapping (address => uint) public debtToUser;
 
   function startNewRound() public override nonReentrant returns (bool) {
-    require(lottos[currentLotto].finished, "previous lottery has not finished");
+    if(currentLotto > 0) {
+      require(lottos[currentLotto].finished, "previous lottery has not finished");
+    }
     currentLotto++;
     lottos[currentLotto] = Lottery(_timestamp(), _timestamp(), 0, 0, bytes32(0), false);
     return true;
@@ -257,6 +260,10 @@ contract Lotto is IERC20Lotto, ReentrancyGuard {
 
   function viewFee() public pure override returns (uint) {
     return fee;
+  }
+
+  function viewFeeRecipient() public view override returns (address) {
+    return feeRecipient;
   }
 
 	function _sender() internal view returns (address) {
