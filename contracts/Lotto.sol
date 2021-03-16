@@ -1,3 +1,7 @@
+/*
+ + SPDX-License-Identifier: MIT
+ + Made with <3 by your local Byte Masons
+*/
 pragma solidity 0.8.0;
 
 import "./ReentrancyGuard.sol";
@@ -14,44 +18,37 @@ struct Lottery {
   bool finished;
 }
 
-interface IERC20Lotto {
+interface ILottery {
   function draw() external returns (bytes32);
-  function enter() external payable returns (bytes32);
+  function enter() external payable returns (bool);
   function startNewRound() external returns (bool);
   function getPaid() external returns (bool);
 
-  function viewName() external view returns (string memory);
   function viewWinnings() external view returns (uint);
-  function viewTicketPrice() external view returns (uint);
   function viewLotto(uint lottoNumber) external view returns (Lottery memory);
   function viewTicketNumber(bytes32 _ticketID) external view returns (uint);
   function viewTicketHolders(bytes32 _ticketID) external view returns (address[] memory);
   function readyToDraw() external view returns (bool);
-  function viewLottoNumber() external view returns (uint);
   function viewOdds() external view returns (uint);
-  function viewDrawNumber() external view returns (uint);
-  function viewDrawFrequency() external view returns (uint);
-  function viewTicketCount() external view returns (uint);
-  function viewFeeRecipient() external view returns (address);
-  function viewFee() external view returns (uint);
 }
 
-contract Lotto is IERC20Lotto, ReentrancyGuard {
+contract FantomLottery is ILottery, ReentrancyGuard {
 
   string public name;
   address public feeRecipient;
-  uint fundsRaised;
 
   uint public constant ethDecimals = 1000000000000000000;
   uint public constant fee = 30000000000000000; // 3%
 
-  uint immutable drawFrequency;
-  uint immutable ticketPrice;
-  uint immutable modulus;
+  uint public immutable drawFrequency;
+  uint public immutable ticketPrice;
+  uint public immutable modulus;
 
   uint public currentLotto;
   uint public currentDraw;
   uint public ticketCounter;
+
+  uint public fundsRaised;
 
   constructor(uint _drawFrequency, uint _ticketPrice, string memory _name, address _feeRecipient, uint _modulus) {
     drawFrequency = _drawFrequency;
@@ -67,11 +64,14 @@ contract Lotto is IERC20Lotto, ReentrancyGuard {
   }
 
 	mapping (uint => Lottery) lottos;
-
-  //user-specific mappings per lotto
-	mapping (bytes32 => Ticket) public tickets;
+  mapping (bytes32 => Ticket) public tickets;
   mapping (uint => mapping(address => bool)) public hasEntered;
   mapping (address => uint) public debtToUser;
+
+  event newRound(uint lottoNumber);
+  event newEntry(address entrant, bytes32 ticketID, uint totalPot);
+  event newDraw(bool winnerSelected, bytes32 winningTicket);
+  event newPayment(address user, uint amount);
 
   function startNewRound() public override nonReentrant returns (bool) {
     if(currentLotto > 0) {
@@ -79,12 +79,13 @@ contract Lotto is IERC20Lotto, ReentrancyGuard {
     }
     currentLotto++;
     lottos[currentLotto] = Lottery(_timestamp(), _timestamp(), 0, 0, bytes32(0), false);
+    emit newRound(currentLotto);
     return true;
   }
 
-  function enter() public override payable nonReentrant returns (bytes32) {
+  function enter() public override payable nonReentrant returns (bool) {
     require (msg.value == ticketPrice, "Wrong amount.");
-    require (lottos[currentLotto].finished = false, "a winner has already been selected. please start a new lottery.");
+    require (lottos[currentLotto].finished == false, "a winner has already been selected. please start a new lottery.");
 
     uint payment = msg.value;
 
@@ -96,7 +97,8 @@ contract Lotto is IERC20Lotto, ReentrancyGuard {
     }
 
     bytes32 ticketID = createNewTicket();
-    return ticketID;
+    emit newEntry(_sender(), ticketID, lottos[currentLotto].totalPot);
+    return true;
   }
 
   function draw() public override nonReentrant returns (bytes32) {
@@ -108,10 +110,12 @@ contract Lotto is IERC20Lotto, ReentrancyGuard {
 
     if (winner == bytes32(0)) {
       currentDraw++;
-      return bytes32(0);
+      emit newDraw(false, winner);
+      return winner;
     } else {
       payWinner(winner);
       currentDraw = 0;
+      emit newDraw(true, winner);
       return winner;
     }
   }
@@ -125,6 +129,7 @@ contract Lotto is IERC20Lotto, ReentrancyGuard {
 
     assert(debtToUser[_sender()] == 0);
 
+    emit newPayment(_sender(), winnings);
     return true;
   }
 
@@ -214,10 +219,6 @@ contract Lotto is IERC20Lotto, ReentrancyGuard {
     return (_timestamp() - lottos[currentLotto].lastDraw >= drawFrequency);
   }
 
-  function viewName() public view override returns (string memory) {
-    return name;
-  }
-
   function viewWinnings() public view override returns (uint) {
     return debtToUser[_sender()];
   }
@@ -234,36 +235,8 @@ contract Lotto is IERC20Lotto, ReentrancyGuard {
     return tickets[_ticketID].owners;
   }
 
-  function viewTicketPrice() public view override returns (uint) {
-    return ticketPrice;
-  }
-
-  function viewLottoNumber() public view override returns (uint) {
-    return currentLotto;
-  }
-
   function viewOdds() public view override returns (uint) {
     return (10**modulus);
-  }
-
-  function viewDrawNumber() public view override returns (uint) {
-    return currentDraw;
-  }
-
-  function viewDrawFrequency() public view override returns (uint) {
-    return drawFrequency;
-  }
-
-  function viewTicketCount() public view override returns (uint) {
-    return ticketCounter;
-  }
-
-  function viewFee() public pure override returns (uint) {
-    return fee;
-  }
-
-  function viewFeeRecipient() public view override returns (address) {
-    return feeRecipient;
   }
 
 	function _sender() internal view returns (address) {
