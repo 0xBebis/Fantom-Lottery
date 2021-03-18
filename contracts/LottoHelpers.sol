@@ -17,7 +17,11 @@ contract LottoHelper is FantomLottery {
   }
 
   function viewLogArray(uint index) public view returns (bytes32) {
-    return logArray(index);
+    return logArray[index];
+  }
+
+  function checkWinner(uint index, uint n) public view returns (bool) {
+    return (logArray[index] == lottos[n].winningTicket);
   }
 
   function viewStart() public view returns(uint) {
