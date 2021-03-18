@@ -20,7 +20,7 @@ struct Lottery {
 
 interface ILottery {
   function draw() external returns (bytes32);
-  function enter() external payable returns (bool);
+  function enter() external payable returns (bytes32);
   function startNewRound() external returns (bool);
   function getPaid() external returns (bool);
 
@@ -47,8 +47,6 @@ contract FantomLottery is ILottery, ReentrancyGuard {
   uint public currentLotto;
   uint public currentDraw;
   uint public ticketCounter;
-
-  uint public fundsRaised;
 
   constructor(uint _drawFrequency, uint _ticketPrice, string memory _name, address _feeRecipient, uint _modulus) {
     drawFrequency = _drawFrequency;
@@ -83,7 +81,7 @@ contract FantomLottery is ILottery, ReentrancyGuard {
     return true;
   }
 
-  function enter() public override payable nonReentrant returns (bool) {
+  function enter() public override payable nonReentrant returns (bytes32) {
     require (msg.value == ticketPrice, "Wrong amount.");
     require (lottos[currentLotto].finished == false, "a winner has already been selected. please start a new lottery.");
 
@@ -98,7 +96,7 @@ contract FantomLottery is ILottery, ReentrancyGuard {
 
     bytes32 ticketID = createNewTicket();
     emit newEntry(_sender(), ticketID, lottos[currentLotto].totalPot);
-    return true;
+    return ticketID;
   }
 
   function draw() public override nonReentrant returns (bytes32) {
@@ -169,22 +167,25 @@ contract FantomLottery is ILottery, ReentrancyGuard {
   function finalAccounting() internal returns (bool) {
 
     lottos[currentLotto].finished = true;
-    bytes32 _winningTicket = lottos[currentLotto].winningTicket;
-    address[] memory _winners = tickets[_winningTicket].owners;
-    uint _winnerCount = _winners.length;
+    bytes32 winningTicket = lottos[currentLotto].winningTicket;
+    address[] memory _winners = tickets[winningTicket].owners;
 
-    uint winnings = calculateWinnings();
-    uint _fundsRaised = lottos[currentLotto].totalPot - winnings;
-    debtToUser[feeRecipient] += _fundsRaised;
-    fundsRaised += _fundsRaised;
-    uint winningsPerUser = (winnings / _winnerCount);
-
-    assert((winningsPerUser*_winnerCount) < lottos[currentLotto].totalPot);
+    uint _winnings = calculateWinnings();
+    uint winningsPerUser = safeUserDebtCalculation(_winnings);
 
     for (uint i; i < _winners.length; i++) {
       debtToUser[_winners[i]] += winningsPerUser;
     }
     return true;
+  }
+
+  function safeUserDebtCalculation(uint winnings) internal returns (uint) {
+    uint winnerCount = tickets[_winningTicket].owners.length;
+    uint rake = lottos[currentLotto].totalPot - winnings;
+    debtToUser[feeRecipient] += rake;
+    uint _winningsPerUser = (winnings / winnerCount);
+    assert((_winningsPerUser * winnerCount) < (lottos[currentLotto].totalPot / winnerCount));
+    return winningsPerUser;
   }
 
   function generateTicketNumber() internal view returns (uint) {
