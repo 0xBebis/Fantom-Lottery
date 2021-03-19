@@ -29,16 +29,18 @@ describe("Lottery", function () {
 
   describe("Entering the lottery", function () {
     it("should increment ticket counter", async function () {
-      await lottery.enter({ value: ticketPrice });
-      expect(await lottery.viewTicketCount()).to.equal(1);
+      let i;
+      for (i = 1; i <= 100; i++) {
+        await lottery.enter({ value: ticketPrice });
+      }
+      expect(await lottery.viewTicketCount()).to.equal(100);
     });
     it("should add fantom to the total pot", async function () {
       let i;
-      for (i = 1; i < 100; i++) {
+      for (i = 1; i <= 100; i++) {
         await lottery.enter({ value: ticketPrice });
         expect(await lottery.viewPot()).to.equal(ethers.utils.parseEther(`${i}`));
       }
     });
-    it("should properly store ticket IDs");
   });
 });
