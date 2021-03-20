@@ -12,7 +12,6 @@ struct Lottery {
   uint lastDraw;
 
   uint totalPot;
-  uint totalParticipants;
 
   bytes32 winningTicket;
   bool finished;
@@ -28,6 +27,7 @@ interface ILottery {
   function viewLotto(uint lottoNumber) external view returns (Lottery memory);
   function viewTicketNumber(bytes32 _ticketID) external view returns (uint);
   function viewTicketHolders(bytes32 _ticketID) external view returns (address[] memory);
+  function viewTicketsByLotto(uint lottoNumber) external view returns (bytes32[] memory);
   function readyToDraw() external view returns (bool);
   function viewOdds() external view returns (uint);
 }
@@ -63,7 +63,7 @@ contract FantomLottery is ILottery, ReentrancyGuard {
 
 	mapping (uint => Lottery) lottos;
   mapping (bytes32 => Ticket) public tickets;
-  mapping (uint => mapping(address => bool)) public hasEntered;
+  mapping (uint => mapping(address => bytes32[])) public userTickets;
   mapping (address => uint) public debtToUser;
 
   event newRound(uint lottoNumber);
@@ -76,7 +76,7 @@ contract FantomLottery is ILottery, ReentrancyGuard {
       require(lottos[currentLotto].finished, "previous lottery has not finished");
     }
     currentLotto++;
-    lottos[currentLotto] = Lottery(_timestamp(), _timestamp(), 0, 0, bytes32(0), false);
+    lottos[currentLotto] = Lottery(_timestamp(), _timestamp(), 0, bytes32(0), false);
     emit newRound(currentLotto);
     return true;
   }
@@ -89,12 +89,9 @@ contract FantomLottery is ILottery, ReentrancyGuard {
 
     ticketCounter++;
     lottos[currentLotto].totalPot += payment;
-
-    if (hasEntered[currentLotto][_sender()] == false) {
-      lottos[currentLotto].totalParticipants++;
-    }
-
     bytes32 ticketID = createNewTicket();
+    userTickets[currentLotto][_sender()].push(ticketID);
+
     emit newEntry(_sender(), ticketID, lottos[currentLotto].totalPot);
     return ticketID;
   }
@@ -103,16 +100,17 @@ contract FantomLottery is ILottery, ReentrancyGuard {
     require (readyToDraw(), "Not enough time elapsed from last draw");
     require (!lottos[currentLotto].finished, "current lottery is over. please start a new one.");
 
-    bytes32 winner = selectWinningTicket();
     lottos[currentLotto].lastDraw = _timestamp();
+    bytes32 winner = selectWinningTicket();
 
     if (winner == bytes32(0)) {
       currentDraw++;
       emit newDraw(false, winner);
       return winner;
     } else {
-      payWinner(winner);
-      currentDraw = 0;
+      lottos[currentLotto].winningTicket = winner;
+      resetGame();
+      finalAccounting();
       emit newDraw(true, winner);
       return winner;
     }
@@ -131,12 +129,6 @@ contract FantomLottery is ILottery, ReentrancyGuard {
     return true;
   }
 
-  function payWinner(bytes32 _winner) internal returns (bool) {
-    lottos[currentLotto].winningTicket = _winner;
-    finalAccounting();
-    return true;
-  }
-
   function selectWinningTicket() internal view returns (bytes32) {
     uint winningNumber = generateTicketNumber();
     bytes32 winningID = generateTicketID(winningNumber);
@@ -149,7 +141,6 @@ contract FantomLottery is ILottery, ReentrancyGuard {
   }
 
   function createNewTicket() internal returns (bytes32) {
-
     uint ticketNumber = generateTicketNumber();
     bytes32 _ticketID = generateTicketID(ticketNumber);
 
@@ -165,27 +156,25 @@ contract FantomLottery is ILottery, ReentrancyGuard {
   }
 
   function finalAccounting() internal returns (bool) {
-
     lottos[currentLotto].finished = true;
-    bytes32 winningTicket = lottos[currentLotto].winningTicket;
-    address[] memory _winners = tickets[winningTicket].owners;
+    bytes32 _winningTicket = lottos[currentLotto].winningTicket;
+    address[] memory winners = tickets[_winningTicket].owners;
 
     uint _winnings = calculateWinnings();
-    uint winningsPerUser = safeUserDebtCalculation(_winnings);
+    uint winningsPerUser = safeUserDebtCalculation(_winnings, _winningTicket);
 
-    for (uint i; i < _winners.length; i++) {
-      debtToUser[_winners[i]] += winningsPerUser;
+    for (uint i = 0; i < winners.length; i++) {
+      debtToUser[winners[i]] += winningsPerUser;
     }
     return true;
   }
 
-  function safeUserDebtCalculation(uint winnings) internal returns (uint) {
-    uint winnerCount = tickets[_winningTicket].owners.length;
+  function safeUserDebtCalculation(uint winnings, bytes32 winningTicket) internal returns (uint) {
+    uint winnerCount = tickets[winningTicket].owners.length;
     uint rake = lottos[currentLotto].totalPot - winnings;
     debtToUser[feeRecipient] += rake;
     uint _winningsPerUser = (winnings / winnerCount);
-    assert((_winningsPerUser * winnerCount) < (lottos[currentLotto].totalPot / winnerCount));
-    return winningsPerUser;
+    return _winningsPerUser;
   }
 
   function generateTicketNumber() internal view returns (uint) {
@@ -208,12 +197,18 @@ contract FantomLottery is ILottery, ReentrancyGuard {
   }
 
   function generateRandomNumber() internal view returns (uint) {
-    return (uint(keccak256(abi.encodePacked(block.timestamp, block.number, ticketCounter))) % 10);
+    return (uint(keccak256(abi.encodePacked(block.timestamp, block.number, ticketCounter))));
   }
 
 	function feeCalc(uint _total) internal pure returns (uint) {
     uint _rake = (_total * fee) / ethDecimals;
     return(_rake);
+  }
+
+  function resetGame() internal returns (bool) {
+    currentDraw = 0;
+    ticketCounter = 0;
+    return true;
   }
 
   function readyToDraw() public view override returns (bool) {
@@ -236,8 +231,12 @@ contract FantomLottery is ILottery, ReentrancyGuard {
     return tickets[_ticketID].owners;
   }
 
+  function viewTicketsByLotto(uint lottoNumber) public view override returns (bytes32[] memory) {
+    return userTickets[lottoNumber][_sender()];
+  }
+
   function viewOdds() public view override returns (uint) {
-    return (10**modulus);
+    return (10*modulus);
   }
 
 	function _sender() internal view returns (address) {
