@@ -1,6 +1,27 @@
 /*
  + SPDX-License-Identifier: MIT
  + Made with <3 by your local Byte Masons
+ + Version 1.0.0
+ + Source Code and Tests: https://github.com/0xBebis/Fantom-Lottery
+ +
+ + DESCRIPTION: This is a perpetual lottery contract which will run your game, as defined by the constructor, infinite times in succession.
+ +              It is trustless, permissionless, and fully decentralized. Proceeds from official Byte Masons lotteries
+ +              will help fund our Open Source software development, so thanks for playing! I hope you have fun!
+ +
+ + INSTRUCTIONS: The API is secure enough that a bot (or ape) could press random buttons nonstop and a desired outcome would eventually be reached.
+ +               If you aren't a bot or an ape, you can start a fresh lottery by calling "startNewRound()."
+ +               Chances are a lottery has already started, so you may just want to hit "enter()" to join the fun.
+ +               enter() is a payable function, and will cost an amount defined by the public <ticketPrice> variable, denominated in wei.
+ +               Every time <drawFrequency> seconds have passed, someone can call the draw() function.
+ +               The draw function will draw a ticket and, if there are any winners, automatically set aside rewards and reset the lottery.
+ +               If there's no winner, the draw timer will reset and the function can be called again after <drawFrequency> seconds.
+ +
+ +               NOTE: Though you will receive rewards whether you remember your Ticket ID or not, You can check on the tickets you bought for
+ +                     any particular lottery with the 'viewTicketsByLotto' function, and check them against the winner inside the 'viewLotto' function.
+ +                     See more instructions written in the 'ILottery' interface. You can also just use 'viewWinnings' to see if you got paid or not.
+ +
+ +               You can reach out to us at bytemasons@protonmail.com
+ +
 */
 pragma solidity 0.8.0;
 
@@ -109,8 +130,8 @@ contract FantomLottery is ILottery, ReentrancyGuard {
       return winner;
     } else {
       lottos[currentLotto].winningTicket = winner;
-      resetGame();
       finalAccounting();
+      resetGame();
       emit newDraw(true, winner);
       return winner;
     }
@@ -208,6 +229,7 @@ contract FantomLottery is ILottery, ReentrancyGuard {
   function resetGame() internal returns (bool) {
     currentDraw = 0;
     ticketCounter = 0;
+    startNewRound();
     return true;
   }
 
