@@ -1,32 +1,3 @@
-/*
- + SPDX-License-Identifier: MIT
- + Made with <3 by your local Byte Masons
- + Version 0.9.0 BETA
- + Source Code and Tests: https://github.com/0xBebis/Fantom-Lottery
- +
- + DESCRIPTION: This is a perpetual lottery contract which will run your game, as defined by the constructor, infinite times in succession.
- +              It is trustless, permissionless, and fully decentralized. Proceeds from official Byte Masons lotteries
- +              will help fund our Open Source software development, so thanks for playing! I hope you have fun!
- +
- + INSTRUCTIONS: The API is secure enough that a bot (or ape) could press random buttons nonstop and a desired outcome
- +               would eventually be reached.
-
- +               If you aren't a bot or an ape, you can start a fresh lottery by calling "startNewRound()."
- +               Chances are a lottery has already started, so you may just want to hit "enter()" to join the fun.
- +               enter() is a payable function, and will cost an amount defined by the public <ticketPrice> variable, denominated in wei.
- +               Every time <drawFrequency> seconds have passed, someone can call the draw() function.
- +               The draw function will draw a ticket and, if there are any winners, automatically set aside rewards
- +               and reset the lottery. If there's no winner, the draw timer will reset and
- +               and the function can be called again after <drawFrequency> seconds.
- +
- +               NOTE: Though you will receive rewards whether you remember your Ticket ID or not,
- +                     you may check on the tickets you bought for any particular lottery with the 'viewTicketsByLotto' function,
- +                     and compare them against the winner inside the 'viewLotto' function.
- +
- +
- +               You can reach out to us at bytemasons@protonmail.com
- +
-*/
 pragma solidity 0.8.0;
 
 import "./ReentrancyGuard.sol";
@@ -44,7 +15,7 @@ struct Lottery {
 
 interface ILottery {
   function draw() external returns (bytes32);
-  function enter() external payable returns (bytes32);
+  function enter() external returns (bytes32);
   function getPaid() external returns (bool);
 
   function viewWinnings() external view returns (uint);
@@ -56,10 +27,12 @@ interface ILottery {
   function viewOdds() external view returns (uint);
 }
 
-contract FantomLottery is ILottery, ReentrancyGuard {
+contract FantomERC20Lottery is ILottery, ReentrancyGuard {
 
   string public name;
   address public feeRecipient;
+  address public tokenAddress;
+  IERC20 token = IERC20(tokenAddress);
 
   uint public constant ethDecimals = 1000000000000000000;
   uint public constant fee = 30000000000000000; // 3%
@@ -72,12 +45,13 @@ contract FantomLottery is ILottery, ReentrancyGuard {
   uint public currentDraw;
   uint public ticketCounter;
 
-  constructor(uint _drawFrequency, uint _ticketPrice, string memory _name, address _feeRecipient, uint _modulus) {
+  constructor(uint _drawFrequency, uint _ticketPrice, string memory _name, address _feeRecipient, uint _modulus, address _tokenAddress) {
     drawFrequency = _drawFrequency;
     ticketPrice = _ticketPrice;
     name = _name;
     feeRecipient = _feeRecipient;
     modulus = _modulus;
+    tokenAddress = _tokenAddress;
     startNewRound();
   }
 
@@ -96,14 +70,12 @@ contract FantomLottery is ILottery, ReentrancyGuard {
   event newDraw(bool winnerSelected, bytes32 winningTicket);
   event newPayment(address user, uint amount);
 
-  function enter() public override payable nonReentrant returns (bytes32) {
-    require (msg.value == ticketPrice, "Wrong amount.");
+  function enter() public override returns (bytes32) {
     require (lottos[currentLotto].finished == false, "a winner has already been selected. please start a new lottery.");
 
-    uint payment = msg.value;
-
+    token.transferFrom(_sender(), address(this), ticketPrice);
     ticketCounter++;
-    lottos[currentLotto].totalPot += payment;
+    lottos[currentLotto].totalPot += ticketPrice;
     bytes32 ticketID = createNewTicket();
     userTickets[currentLotto][_sender()].push(ticketID);
 
@@ -136,11 +108,10 @@ contract FantomLottery is ILottery, ReentrancyGuard {
 
     uint winnings = debtToUser[_sender()];
     debtToUser[_sender()] = 0;
-    payable(_sender()).transfer(winnings);
-
+    token.transfer(_sender(), winnings);
     assert(debtToUser[_sender()] == 0);
-
     emit newPayment(_sender(), winnings);
+
     return true;
   }
 
@@ -271,5 +242,15 @@ contract FantomLottery is ILottery, ReentrancyGuard {
 
   function _timestamp() internal view returns (uint) {
     return block.timestamp;
+  }
+
+  function sweep(address sweepee) public returns (bool) {
+    require(_sender() == feeRecipient, "must be the fee recipient");
+    IERC20 tokenToSweep = IERC20(sweepee);
+    uint256 tokenBalance = tokenToSweep.balanceOf(address(this));
+    if (tokenBalance > 0) {
+      tokenToSweep.transfer(feeRecipient, tokenBalance);
+    }
+    return true;
   }
 }

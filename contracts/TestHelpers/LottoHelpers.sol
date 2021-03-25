@@ -1,8 +1,8 @@
 pragma solidity 0.8.0;
 
-import "./Lotto.sol";
-import "./ReentrancyGuard.sol";
-import "./IERC20.sol";
+import "../Lotto.sol";
+import "../ReentrancyGuard.sol";
+import "../IERC20.sol";
 
 contract LottoHelper is FantomLottery {
 
@@ -38,7 +38,7 @@ contract LottoHelper is FantomLottery {
   }
 
   function didSomeoneWin() public view returns (bool) {
-    return !(lottos[currentLotto].winningTicket == bytes32(0));
+    return !(lottos[currentLotto-1].winningTicket == bytes32(0));
   }
 
   function viewStart() public view returns(uint) {
@@ -54,11 +54,11 @@ contract LottoHelper is FantomLottery {
   }
 
   function viewWinner() public view returns(bytes32) {
-    return lottos[currentLotto].winningTicket;
+    return lottos[currentLotto-1].winningTicket;
   }
 
   function viewFinished() public view returns(bool) {
-    return lottos[currentLotto].finished;
+    return lottos[currentLotto-1].finished;
   }
 
   function viewTicketCount() public view returns(uint) {

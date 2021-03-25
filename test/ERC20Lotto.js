@@ -1,14 +1,11 @@
 const { expect } = require("chai");
 
-describe("Lottery", function () {
+describe("ERC20Lottery", function () {
 
   let Lotto;
   let lottery;
-  let drawFrequency = 1;
   let ticketPrice = ethers.utils.parseEther("1");
-  let name = "JB's Lottery";
-  let recipient = '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266';
-  let modulus = 1;
+  let maxApproval = ethers.utils.parseEther("10000000000");
   let owner;
   let addr1;
   let addr2;
@@ -17,18 +14,18 @@ describe("Lottery", function () {
   let addrs;
 
   beforeEach(async function () {
-    Lotto = await ethers.getContractFactory("LottoHelper");
+    Lotto = await ethers.getContractFactory("ERC20LottoHelper");
     [owner, addr1, addr2, addr3, addr4, ...addrs] = await ethers.getSigners();
     lottery = await Lotto.deploy();
+    await lottery.approve(flotto, maxApproval);
+    await lottery.connect(addr1).approve(flotto, maxApproval);
+    await lottery.connect(addr2).approve(flotto, maxApproval);
+    await lottery.connect(addr3).approve(flotto, maxApproval);
+    await lottery.connect(addr4).approve(flotto, maxApproval);
   });
 //{ value: ethers.utils.parseEther("1") }
   describe("Starting a new lottery", function () {
     it("should start the lottery, then increment currentLotto", async function () {
-      console.log(owner.address);
-      console.log(addr1.address);
-      console.log(addr2.address);
-      console.log(addr3.address);
-      console.log(addr4.address);
       expect(await lottery.viewLottoNumber()).to.equal(1);
     });
   });
@@ -37,21 +34,21 @@ describe("Lottery", function () {
     it("should increment ticket counter", async function () {
       let i;
       for (i = 1; i <= 10; i++) {
-        await lottery.enter({ value: ticketPrice });
+        await lottery.enter();
       }
       expect(await lottery.viewTicketCount()).to.equal(10);
     });
     it("should add fantom to the total pot", async function () {
       let i;
       for (i = 1; i <= 10; i++) {
-        await lottery.enter({ value: ticketPrice });
+        await lottery.enter();
         expect(await lottery.viewPot()).to.equal(ethers.utils.parseEther(`${i}`));
       }
     });
     it("should create a ticketID and save it to the sender account", async function () {
       let i;
       for (i = 0; i < 10; i++) {
-        await lottery.connect(addr1).enter({ value: ticketPrice });
+        await lottery.connect(addr1).enter();
       }
       let ticketIDs = await lottery.connect(addr1).viewTicketsByLotto(1);
       expect(ticketIDs.length).to.equal(10);
@@ -67,7 +64,7 @@ describe("Lottery", function () {
     it("should update the current draw variable, or set to 0 if someone wins", async function () {
       let i;
       for (i = 1; i <= 100; i++) {
-        await lottery.enter({ value: ticketPrice });
+        await lottery.enter();
         await lottery.draw();
         if (await lottery.didSomeoneWin() == true) {
           expect(await lottery.viewCurrentDraw()).to.equal(0);
@@ -82,10 +79,10 @@ describe("Lottery", function () {
     it("should distribute the pot to each winner and take fee", async function () {
       let i;
       for (i = 1; i <= 10; i++) {
-        await lottery.connect(addr1).enter({ value: ticketPrice });
-        await lottery.connect(addr2).enter({ value: ticketPrice });
-        await lottery.connect(addr3).enter({ value: ticketPrice });
-        await lottery.connect(addr4).enter({ value: ticketPrice });
+        await lottery.connect(addr1).enter();
+        await lottery.connect(addr2).enter();
+        await lottery.connect(addr3).enter();
+        await lottery.connect(addr4).enter();
       }
         const totalPot = await lottery.viewPot();
         console.log(totalPot);
