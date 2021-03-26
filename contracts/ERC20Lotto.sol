@@ -2,6 +2,7 @@ pragma solidity 0.8.0;
 
 import "./ReentrancyGuard.sol";
 import "./IERC20.sol";
+import "./TestHelpers/ERC20.sol";
 
 struct Lottery {
   uint startTime;
@@ -32,7 +33,6 @@ contract FantomERC20Lottery is ILottery, ReentrancyGuard {
   string public name;
   address public feeRecipient;
   address public tokenAddress;
-  IERC20 token = IERC20(tokenAddress);
 
   uint public constant ethDecimals = 1000000000000000000;
   uint public constant fee = 30000000000000000; // 3%
@@ -73,7 +73,7 @@ contract FantomERC20Lottery is ILottery, ReentrancyGuard {
   function enter() public override returns (bytes32) {
     require (lottos[currentLotto].finished == false, "a winner has already been selected. please start a new lottery.");
 
-    token.transferFrom(_sender(), address(this), ticketPrice);
+    IERC20(tokenAddress).transferFrom(_sender(), address(this), ticketPrice);
     ticketCounter++;
     lottos[currentLotto].totalPot += ticketPrice;
     bytes32 ticketID = createNewTicket();
@@ -108,7 +108,7 @@ contract FantomERC20Lottery is ILottery, ReentrancyGuard {
 
     uint winnings = debtToUser[_sender()];
     debtToUser[_sender()] = 0;
-    token.transfer(_sender(), winnings);
+    IERC20(tokenAddress).transfer(_sender(), winnings);
     assert(debtToUser[_sender()] == 0);
     emit newPayment(_sender(), winnings);
 
