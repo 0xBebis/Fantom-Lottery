@@ -24,11 +24,6 @@ describe("Lottery", function () {
 //{ value: ethers.utils.parseEther("1") }
   describe("Starting a new lottery", function () {
     it("should start the lottery, then increment currentLotto", async function () {
-      console.log(owner.address);
-      console.log(addr1.address);
-      console.log(addr2.address);
-      console.log(addr3.address);
-      console.log(addr4.address);
       expect(await lottery.viewLottoNumber()).to.equal(1);
     });
   });

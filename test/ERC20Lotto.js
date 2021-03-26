@@ -3,25 +3,37 @@ const { expect } = require("chai");
 describe("ERC20Lottery", function () {
 
   let Lotto;
+  let TestToken;
   let lottery;
+  let ttoken;
   let ticketPrice = ethers.utils.parseEther("1");
   let maxApproval = ethers.utils.parseEther("10000000000");
   let owner;
+  let ownr = "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266";
   let addr1;
+  let ad1 = "0x70997970C51812dc3A010C7d01b50e0d17dc79C8";
   let addr2;
+  let ad2 = "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC";
   let addr3;
+  let ad3 = "0x90F79bf6EB2c4f870365E785982E1f101E93b906";
   let addr4;
+  let ad4 = "0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65";
   let addrs;
 
   beforeEach(async function () {
     Lotto = await ethers.getContractFactory("ERC20LottoHelper");
+    TestToken = await ethers.getContractFactory("TestToken");
     [owner, addr1, addr2, addr3, addr4, ...addrs] = await ethers.getSigners();
     lottery = await Lotto.deploy();
-    await lottery.approve(flotto, maxApproval);
-    await lottery.connect(addr1).approve(flotto, maxApproval);
-    await lottery.connect(addr2).approve(flotto, maxApproval);
-    await lottery.connect(addr3).approve(flotto, maxApproval);
-    await lottery.connect(addr4).approve(flotto, maxApproval);
+    ttoken = await TestToken.deploy(ownr, ad1, ad2, ad3, ad4);
+    const ttokenAddress = await ttoken.address;
+    const lottoAddress = await lottery.address;
+    await lottery.updateTokenAddress(ttokenAddress);
+    await ttoken.approve(lottoAddress, maxApproval);
+    await ttoken.connect(addr1).approve(lottoAddress, maxApproval);
+    await ttoken.connect(addr2).approve(lottoAddress, maxApproval);
+    await ttoken.connect(addr3).approve(lottoAddress, maxApproval);
+    await ttoken.connect(addr4).approve(lottoAddress, maxApproval);
   });
 //{ value: ethers.utils.parseEther("1") }
   describe("Starting a new lottery", function () {
@@ -29,7 +41,6 @@ describe("ERC20Lottery", function () {
       expect(await lottery.viewLottoNumber()).to.equal(1);
     });
   });
-
   describe("Entering the lottery", function () {
     it("should increment ticket counter", async function () {
       let i;
