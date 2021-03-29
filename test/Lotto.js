@@ -83,20 +83,56 @@ describe("Lottery", function () {
         await lottery.connect(addr4).enter({ value: ticketPrice });
       }
         const totalPot = await lottery.viewPot();
-        console.log(totalPot);
+        console.log(totalPot.toString());
         await lottery.draw();
         const winningTicket = await lottery.viewWinner();
         console.log(winningTicket);
         const winners = await lottery.viewTicketHolders(winningTicket);
         console.log(winners);
         for (i=0; i<winners.length; i++) {
-          console.log(await lottery.viewWinningsByAddress(winners[i]));
+          let reward = await lottery.viewWinningsByAddress(winners[i]);
+          console.log(`Winnings for ${winners[i]}: ${reward.toString()}`);
         }
         const rake = await lottery.viewWinnings();
-        console.log(rake);
+        console.log(`Fees collected: ${rake.toString()}`);
         expect(rake).to.equal(ethers.utils.parseEther(`${40*0.03}`));
         expect(totalPot).to.equal(ethers.utils.parseEther(`40`));
     });
-    it("should allow the user to withdraw funds", async function () {})
+    it("should allow the user to withdraw funds", async function () {
+      for (i = 1; i <= 100; i++) {
+        await lottery.connect(addr1).enter({ value: ticketPrice });
+        await lottery.draw();
+        if (await lottery.didSomeoneWin() == true) {
+          console.log(await lottery.viewWinner());
+          break;
+        } else {
+          console.log(await lottery.viewWinner());
+        }
+      }
+      console.log("========================================")
+      const firstBalance = await addr1.getBalance();
+      console.log(typeof firstBalance);
+      console.log(`Initial Balance: ${firstBalance.toString()}`);
+      const pot = (await lottery.viewLastPot())*0.97;
+      const rake = (await lottery.viewLastPot())*0.03;
+      console.log(`Pot minus rake: ${pot.toString()}`);
+      const ownerDebt = await lottery.viewWinnings();
+      const userDebt = await lottery.connect(addr1).viewWinnings();
+      console.log(`User account balance: ${userDebt.toString()}`);
+      console.log(`Fee recipient account balance: ${ownerDebt.toString()}`)
+
+      const tx = await lottery.connect(addr1).getPaid();
+      const receipt = await tx.wait();
+      const gas = parseInt(receipt.gasUsed);
+      console.log(`Gas used by getPaid(): ${gas.toString()}`);
+
+      const newBalance = await addr1.getBalance();
+      console.log(`New Balance: ${newBalance.toString()}`)
+      const winnings = (pot-gas);
+      const expectedBalance = firstBalance + winnings;
+      console.log(`Expected Balance: ${expectedBalance.toString()}`);
+;
+      expect(newBalance).to.equal(expectedBalance);
+    });
   });
 });
