@@ -138,7 +138,6 @@ describe("Lottery", function () {
       const winnings = (pot-totalGas);
       const expectedBalance = parseInt(firstBalance) + parseInt(winnings);
       console.log(`Expected Balance: ${expectedBalance.toString()}`);
-;
       expect(newBalance).to.equal(expectedBalance);
     });
   });

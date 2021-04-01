@@ -78,6 +78,10 @@ contract ERC20LottoHelper is FantomERC20Lottery {
     return lottos[currentLotto].totalPot;
   }
 
+  function viewLastPot() public view returns(uint) {
+    return lottos[currentLotto-1].totalPot;
+  }
+
   function viewWinner() public view returns(bytes32) {
     return lottos[currentLotto-1].winningTicket;
   }

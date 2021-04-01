@@ -110,6 +110,37 @@ describe("ERC20Lottery", function () {
         expect(rake).to.equal(ethers.utils.parseEther(`${40*0.03}`));
         expect(totalPot).to.equal(ethers.utils.parseEther(`40`));
     });
-    it("should allow the user to withdraw funds", async function () {})
+    it("should allow the user to withdraw funds", async function () {
+      let i;
+      console.log("===========Running Lottery===========")
+      for (i = 1; i <= 100; i++) {
+        await lottery.connect(addr1).enter();
+        await lottery.draw();
+        if (await lottery.didSomeoneWin() == true) {
+          const winner = await lottery.viewWinner();
+          console.log(`Winner, out of ${i} draws: ${winner}`);
+          break;
+        }
+      }
+      console.log("=====================================")
+      const firstBalance = await ttoken.balanceOf(ad1);
+      console.log(`Initial Balance: ${firstBalance.toString()}`);
+      const pot = (await lottery.viewLastPot())*0.97;
+      const rake = (await lottery.viewLastPot())*0.03;
+      console.log(`Pot minus rake: ${pot.toString()}`);
+      const ownerDebt = await lottery.viewWinnings();
+      const userDebt = await lottery.connect(addr1).viewWinnings();
+      console.log(`User account balance: ${userDebt.toString()}`);
+      console.log(`Fee recipient account balance: ${ownerDebt.toString()}`)
+
+      const tx = await lottery.connect(addr1).getPaid();
+      const receipt = await tx.wait();
+      const gas = parseInt(receipt.gasUsed);
+      console.log(`Gas used to get paid: ${gas.toString()}`);
+
+      const newBalance = await ttoken.balanceOf(ad1);
+      console.log(`New Balance: ${newBalance.toString()}`)
+      expect(parseInt(newBalance)).to.equal(parseInt(firstBalance) + parseInt(pot));
+    });
   });
 });

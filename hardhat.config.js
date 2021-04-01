@@ -1,6 +1,6 @@
 require("@nomiclabs/hardhat-waffle");
 
-const { fantomKey } = require('./secrets.json');
+const { fantomKey, bombKey } = require('./secrets.json');
 
 task("accounts", "Prints the list of accounts", async () => {
   const accounts = await ethers.getSigners();
@@ -17,7 +17,7 @@ module.exports = {
     },
     opera: {
       url: "https://rpcapi.fantom.network",
-      accounts: [fantomKey]
+      accounts: [bombKey]
     }
   },
   solidity: {
@@ -35,6 +35,6 @@ module.exports = {
     artifacts: "./artifacts"
   },
   mocha: {
-    timeout: 50000
+    timeout: 500000
   }
 };
