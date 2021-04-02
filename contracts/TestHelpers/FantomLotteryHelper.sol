@@ -1,12 +1,17 @@
+// SPDX-License-Identifier: MIT
+
 pragma solidity 0.8.0;
 
-import "../Lotto.sol";
-import "../ReentrancyGuard.sol";
-import "../IERC20.sol";
+import "../FantomLottery.sol";
+import "../Utils/ReentrancyGuard.sol";
+import "../Interfaces/IERC20.sol";
 
-contract LottoHelper is FantomLottery {
+contract FantomLotteryHelper is FantomLottery {
 
-  constructor() FantomLottery(0, 1000000000000000000, "Fantom Lottery", 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266, 10) {}
+  address ownr = address(0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266);
+
+  constructor() FantomLottery("ERC20 Lottery", 0, 1000000000000000000, 10, 30000000000000000, ownr) {
+  }
 
   mapping(uint => bytes32) public logArray;
   uint logCounter = 1;

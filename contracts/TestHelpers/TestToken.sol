@@ -1,7 +1,9 @@
+// SPDX-License-Identifier: MIT
+
 pragma solidity 0.8.0;
 
-import "./ERC20.sol";
-import "../IERC20.sol";
+import "../Base/ERC20.sol";
+import "../Interfaces/IERC20.sol";
 
 contract TestToken is IERC20, ERC20 {
 
