@@ -23,6 +23,7 @@ contract ERC20Lottery is IERC20Lottery, BaseLottery {
     fee = _fee;
     feeRecipient = _feeRecipient;
     tokenAddress = _tokenAddress;
+    startNewRound();
   }
 
   function enter() public override returns (bytes32) {
