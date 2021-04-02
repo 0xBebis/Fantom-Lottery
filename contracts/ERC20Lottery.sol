@@ -110,4 +110,7 @@ contract ERC20Lottery is IERC20Lottery, BaseLottery {
   function viewOdds() public view override returns (uint) {
     return (winChance);
   }
+
+  function beforeEachEnter() internal returns (bool) { }
+  function beforeEachDraw() internal returns (bool) { }
 }

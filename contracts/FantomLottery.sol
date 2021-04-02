@@ -12,7 +12,7 @@ import "./Interfaces/IFantomLottery.sol";
 import "./Interfaces/IERC20.sol";
 import "./Utils/ReentrancyGuard.sol";
 
-contract FantomLottery is IFantomLottery, BaseLottery, ReentrancyGuard {
+contract FantomLottery is IFantomLottery, BaseLottery, RevenueStream, ReentrancyGuard {
 
   constructor(string memory _name, uint _drawFrequency, uint _ticketPrice, uint _winChance, uint _fee, address _feeRecipient) {
     name = _name;
@@ -111,4 +111,7 @@ contract FantomLottery is IFantomLottery, BaseLottery, ReentrancyGuard {
   function viewOdds() public view override returns (uint) {
     return (winChance);
   }
+
+  function beforeEachEnter() internal returns (bool) { }
+  function beforeEachDraw() internal returns (bool) { }
 }
