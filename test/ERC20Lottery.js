@@ -21,7 +21,7 @@ describe("ERC20Lottery", function () {
   let addrs;
 
   beforeEach(async function () {
-    Lotto = await ethers.getContractFactory("ERC20LottoHelper");
+    Lotto = await ethers.getContractFactory("ERC20LotteryHelper");
     TestToken = await ethers.getContractFactory("TestToken");
     [owner, addr1, addr2, addr3, addr4, ...addrs] = await ethers.getSigners();
     lottery = await Lotto.deploy();

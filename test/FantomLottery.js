@@ -17,7 +17,7 @@ describe("Lottery", function () {
   let addrs;
 
   beforeEach(async function () {
-    Lotto = await ethers.getContractFactory("LottoHelper");
+    Lotto = await ethers.getContractFactory("FantomLotteryHelper");
     [owner, addr1, addr2, addr3, addr4, ...addrs] = await ethers.getSigners();
     lottery = await Lotto.deploy();
   });
