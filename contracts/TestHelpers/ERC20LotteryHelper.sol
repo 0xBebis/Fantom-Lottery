@@ -13,17 +13,8 @@ contract ERC20LotteryHelper is ERC20Lottery {
   constructor() ERC20Lottery("ERC20 Lottery", 0, 1000000000000000000, 10, address(0), 30000000000000000, ownr) {
   }
 
-  mapping(uint => bytes32) public logArray;
-  uint logCounter = 1;
-
   function updateTokenAddress(address _ad) public returns (bool) {
     tokenAddress = _ad;
-    return true;
-  }
-
-  function enterAndLog() public payable returns (bool) {
-    logArray[logCounter] = enter();
-    logCounter++;
     return true;
   }
 
@@ -43,14 +34,6 @@ contract ERC20LotteryHelper is ERC20Lottery {
     return currentDraw;
   }
 
-  function viewLogArray(uint index) public view returns (bytes32) {
-    return logArray[index];
-  }
-
-  function checkWinner(uint index) public view returns (bool) {
-    return (logArray[index] == lottos[1].winningTicket);
-  }
-
   function didSomeoneWin() public view returns (bool) {
     return !(lottos[currentLotto-1].winningTicket == bytes32(0));
   }
@@ -59,9 +42,6 @@ contract ERC20LotteryHelper is ERC20Lottery {
     return lottos[currentLotto].startTime;
   }
 
-  function viewTokenAddress() public view returns (address) {
-    return tokenAddress;
-  }
 
   function viewLast() public view returns(uint) {
     return lottos[currentLotto].lastDraw;

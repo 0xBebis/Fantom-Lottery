@@ -13,15 +13,6 @@ contract FantomLotteryHelper is FantomLottery {
   constructor() FantomLottery("ERC20 Lottery", 0, 1000000000000000000, 10, 30000000000000000, ownr) {
   }
 
-  mapping(uint => bytes32) public logArray;
-  uint logCounter = 1;
-
-  function enterAndLog() public payable returns (bool) {
-    logArray[logCounter] = enter();
-    logCounter++;
-    return true;
-  }
-
   function checkRandomness() public view returns (uint[5] memory) {
     return [generateRandomNumber(), (generateRandomNumber() % 5),block.number, block.timestamp, ticketCounter];
   }
@@ -32,14 +23,6 @@ contract FantomLotteryHelper is FantomLottery {
 
   function viewCurrentDraw() public view returns (uint) {
     return currentDraw;
-  }
-
-  function viewLogArray(uint index) public view returns (bytes32) {
-    return logArray[index];
-  }
-
-  function checkWinner(uint index) public view returns (bool) {
-    return (logArray[index] == lottos[1].winningTicket);
   }
 
   function didSomeoneWin() public view returns (bool) {
