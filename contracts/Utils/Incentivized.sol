@@ -20,6 +20,7 @@ contract Incentivized {
 
   function fund(uint _amount) public returns (bool) {
     IERC20(incentiveToken).transferFrom(msg.sender, address(this), _amount);
+    return true;
   }
 
 }

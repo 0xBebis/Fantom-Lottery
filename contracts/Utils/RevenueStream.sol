@@ -5,16 +5,18 @@
  + Source Code and Tests: https://github.com/Byte-Masons/fLotto-Core
 */
 
+import "../Interfaces/IERC20.sol";
+
 pragma solidity 0.8.0;
 
 contract RevenueStream {
 
   uint public fee;
   address public feeRecipient;
+  address public self = address(this);
 
   uint public fantomDebtToRecipient;
   mapping(address => uint) public ERC20DebtToRecipient;
-
 
   uint public constant ethDecimals = 1000000000000000000;
 
@@ -23,35 +25,47 @@ contract RevenueStream {
     return(_rake);
   }
 
-  function takeFee(uint _total) internal returns (uint) {
-    uint rake = feecalc(_total);
-    debtToRecipient += rake;
+  function takeFantomFee(uint _total) internal returns (uint) {
+    uint rake = feeCalc(_total);
+    fantomDebtToRecipient += rake;
     uint leftover = _total - rake;
     return leftover;
   }
 
-  function takeERC20Fee(uint _total, uint _address) internal returns (uint) {
-    uint rake = feecalc(_total);
-    ERC20DebtToRecipient[address] += rake;
+  function takeERC20Fee(address _tokenToTake, uint _total) internal returns (uint) {
+    uint rake = feeCalc(_total);
+    ERC20DebtToRecipient[_tokenToTake] += rake;
     uint leftover = _total - rake;
     return leftover;
   }
 
-  function withdrawFees(uint ERC20Address) public returns (bool) {
+  function withdrawERC20(address ERC20Address) public returns (bool) {
     require(msg.sender == feeRecipient, "You are not the fee recipient");
-    require(IERC20(ERC20Address).balanceOf(address(this)) > 0, "No tokens of that type to pay out");
+    require(ERC20DebtToRecipient[ERC20Address] > 0, "you have nothing to claim");
 
-    if (ERC20DebtToRecipient[ERC20Address] > 0) {
-      ERC20DebtToRecipient[ERC20Address] = 0;
-      IERC20(ERC20Address).transfer(feeRecipient, ERC20DebtToRecipient[ERC20Address]);
-    }
+    uint payment = ERC20DebtToRecipient[ERC20Address];
+    ERC20DebtToRecipient[ERC20Address] = 0;
+    IERC20(ERC20Address).transfer(feeRecipient, payment);
 
-    if (fantomDebtToRecipient > 0) {
-      fantomDebtToRecipient = 0;
-      payable(_sender()).transfer(fantomDebtToRecipient);
-    }
     return true;
   }
 
+  function withdrawFantom() public returns (bool) {
+    require(msg.sender == feeRecipient, "You are not the fee recipient");
+    require(fantomDebtToRecipient > 0, "you have nothing to claim");
 
+    uint payment = fantomDebtToRecipient;
+    fantomDebtToRecipient = 0;
+    payable(msg.sender).transfer(payment);
+
+    return true;
+  }
+
+  function viewFantomCollected() public view returns (uint) {
+    return fantomDebtToRecipient;
+  }
+
+  function viewTokensCollected(address _token) public view returns (uint) {
+    return ERC20DebtToRecipient[_token];
+  }
 }
