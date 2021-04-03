@@ -6,7 +6,7 @@ describe("ERC20Lottery", function () {
   let TestToken;
   let lottery;
   let ttoken;
-  let ticketPrice = ethers.utils.parseEther("1");
+  let ttokenAddress
   let maxApproval = ethers.utils.parseEther("10000000000");
   let owner;
   let ownr = "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266";
@@ -26,7 +26,7 @@ describe("ERC20Lottery", function () {
     [owner, addr1, addr2, addr3, addr4, ...addrs] = await ethers.getSigners();
     lottery = await Lotto.deploy();
     ttoken = await TestToken.deploy(ownr, ad1, ad2, ad3, ad4);
-    const ttokenAddress = await ttoken.address;
+    ttokenAddress = await ttoken.address;
     const lottoAddress = await lottery.address;
     await lottery.updateTokenAddress(ttokenAddress);
     await ttoken.approve(lottoAddress, maxApproval);
@@ -53,16 +53,16 @@ describe("ERC20Lottery", function () {
       let i;
       for (i = 1; i <= 10; i++) {
         await lottery.enter();
-        expect(await lottery.viewPot()).to.equal(ethers.utils.parseEther(`${i}`));
+        expect(await lottery.viewPot()).to.equal(ethers.utils.parseEther(`${0.97*i}`));
       }
     });
     it("should create a ticketID and save it to the sender account", async function () {
       let i;
-      for (i = 0; i < 10; i++) {
+      for (i = 0; i < 50; i++) {
         await lottery.connect(addr1).enter();
       }
-      let ticketIDs = await lottery.connect(addr1).viewTicketsByLotto(1);
-      expect(ticketIDs.length).to.equal(10);
+      let ticketIDs = await lottery.connect(addr1).viewUserTicketList(1);
+      expect(ticketIDs.length).to.equal(50);
     });
   });
   describe("drawing a ticket", function () {
@@ -79,11 +79,11 @@ describe("ERC20Lottery", function () {
         await lottery.draw();
         if (await lottery.didSomeoneWin() == true) {
           expect(await lottery.viewCurrentDraw()).to.equal(0);
-          console.log(await lottery.viewWinner());
+          const winner = await lottery.viewWinner();
+          console.log(`Winner, out of ${i} draws: ${winner}`);
           break;
         } else {
           expect(await lottery.viewCurrentDraw()).to.equal(i);
-          console.log(await lottery.viewWinner());
         }
       }
     });
@@ -96,19 +96,19 @@ describe("ERC20Lottery", function () {
         await lottery.connect(addr4).enter();
       }
         const totalPot = await lottery.viewPot();
-        console.log(totalPot);
+        console.log(`Total pot: ${totalPot.toString()}`);
         await lottery.draw();
         const winningTicket = await lottery.viewWinner();
-        console.log(winningTicket);
+        console.log(`Winning ticket ID: ${winningTicket}`);
         const winners = await lottery.viewTicketHolders(winningTicket);
-        console.log(winners);
+        console.log(`Winning addresses: ${winners}`);
         for (i=0; i<winners.length; i++) {
           console.log(await lottery.viewWinningsByAddress(winners[i]));
         }
-        const rake = await lottery.viewWinnings();
-        console.log(rake);
+        const rake = await lottery.viewTokensCollected(ttokenAddress);
+        console.log(`Fees collected: ${rake.toString()}`);
         expect(rake).to.equal(ethers.utils.parseEther(`${40*0.03}`));
-        expect(totalPot).to.equal(ethers.utils.parseEther(`40`));
+        expect(totalPot).to.equal(ethers.utils.parseEther(`${40*0.97}`));
     });
     it("should allow the user to withdraw funds", async function () {
       let i;
@@ -125,10 +125,9 @@ describe("ERC20Lottery", function () {
       console.log("=====================================")
       const firstBalance = await ttoken.balanceOf(ad1);
       console.log(`Initial Balance: ${firstBalance.toString()}`);
-      const pot = (await lottery.viewLastPot())*0.97;
-      const rake = (await lottery.viewLastPot())*0.03;
-      console.log(`Pot minus rake: ${pot.toString()}`);
-      const ownerDebt = await lottery.viewWinnings();
+      const pot = await lottery.viewLastPot();
+      console.log(`Pot: ${pot.toString()}`);
+      const ownerDebt = await lottery.viewTokensCollected(ttokenAddress);
       const userDebt = await lottery.connect(addr1).viewWinnings();
       console.log(`User account balance: ${userDebt.toString()}`);
       console.log(`Fee recipient account balance: ${ownerDebt.toString()}`)

@@ -4,11 +4,7 @@ describe("Lottery", function () {
 
   let Lotto;
   let lottery;
-  let drawFrequency = 1;
   let ticketPrice = ethers.utils.parseEther("1");
-  let name = "JB's Lottery";
-  let recipient = '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266';
-  let modulus = 1;
   let owner;
   let addr1;
   let addr2;
@@ -40,16 +36,16 @@ describe("Lottery", function () {
       let i;
       for (i = 1; i <= 10; i++) {
         await lottery.enter({ value: ticketPrice });
-        expect(await lottery.viewPot()).to.equal(ethers.utils.parseEther(`${i}`));
+        expect(await lottery.viewPot()).to.equal(ethers.utils.parseEther(`${0.97*i}`));
       }
     });
     it("should create a ticketID and save it to the sender account", async function () {
       let i;
-      for (i = 0; i < 10; i++) {
+      for (i = 0; i < 50; i++) {
         await lottery.connect(addr1).enter({ value: ticketPrice });
       }
-      let ticketIDs = await lottery.connect(addr1).viewTicketsByLotto(1);
-      expect(ticketIDs.length).to.equal(10);
+      let ticketIDs = await lottery.connect(addr1).viewUserTicketList(1);
+      expect(ticketIDs.length).to.equal(50);
     });
   });
   describe("drawing a ticket", function () {
@@ -95,10 +91,10 @@ describe("Lottery", function () {
           let reward = await lottery.viewWinningsByAddress(winners[i]);
           console.log(`Winnings for ${winners[i]}: ${reward.toString()}`);
         }
-        const rake = await lottery.viewWinnings();
+        const rake = await lottery.viewFantomCollected();
         console.log(`Fees collected: ${rake.toString()}`);
         expect(rake).to.equal(ethers.utils.parseEther(`${40*0.03}`));
-        expect(totalPot).to.equal(ethers.utils.parseEther(`40`));
+        expect(totalPot).to.equal(ethers.utils.parseEther(`${40*0.97}`));
     });
     it("should allow the user to withdraw funds", async function () {
       let i;
@@ -116,10 +112,9 @@ describe("Lottery", function () {
       const firstBalance = ethers.BigNumber.from(await addr1.getBalance());
       console.log(typeof firstBalance);
       console.log(`Initial Balance: ${firstBalance.toString()}`);
-      const pot = (await lottery.viewLastPot())*0.97;
-      const rake = (await lottery.viewLastPot())*0.03;
-      console.log(`Pot minus rake: ${pot.toString()}`);
-      const ownerDebt = await lottery.viewWinnings();
+      const pot = await lottery.viewLastPot();
+      console.log(`Pot: ${pot.toString()}`);
+      const ownerDebt = await lottery.viewFantomCollected();
       const userDebt = await lottery.connect(addr1).viewWinnings();
       console.log(`User account balance: ${userDebt.toString()}`);
       console.log(`Fee recipient account balance: ${ownerDebt.toString()}`)
