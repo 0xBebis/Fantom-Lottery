@@ -20,7 +20,7 @@ pragma solidity 0.8.0;
 import "../Utils/RevenueStream.sol";
 import "../Utils/UtilityPackage.sol";
 
-contract BaseLottery is RevenueStream, UtilityPackage {
+contract BaseLottery is UtilityPackage {
 
   string public name;
 
@@ -28,9 +28,11 @@ contract BaseLottery is RevenueStream, UtilityPackage {
   uint public ticketPrice;
   uint public winChance;
 
-  uint public currentLotto;
-  uint public currentDraw;
-  uint public ticketCounter;
+  uint public currentLotto = 0;
+  uint public currentDraw = 0;
+  uint public ticketCounter = 0;
+
+  uint public totalValuePlayed = 0;
 
   struct Ticket {
     address[] owners;
@@ -41,6 +43,25 @@ contract BaseLottery is RevenueStream, UtilityPackage {
   mapping (bytes32 => Ticket) public tickets;
   mapping (uint => mapping(address => bytes32[])) public userTickets;
   mapping (address => uint) public debtToUser;
+
+  event newRound(uint lottoNumber);
+  event newEntry(address entrant, bytes32 ticketID, uint totalPot);
+  event newDraw(bool winnerSelected, bytes32 winningTicket);
+  event newPayment(address user, uint amount);
+
+  function startNewRound() internal returns (bool) {
+    currentLotto++;
+    lottos[currentLotto] = Lottery(_timestamp(), _timestamp(), 0, bytes32(0), false);
+    emit newRound(currentLotto);
+    return true;
+  }
+
+  function resetGame() internal returns (bool) {
+    currentDraw = 0;
+    ticketCounter = 0;
+    startNewRound();
+    return true;
+  }
 
   function selectWinningTicket() internal view returns (bytes32) {
     uint winningNumber = generateTicketNumber();
@@ -70,11 +91,18 @@ contract BaseLottery is RevenueStream, UtilityPackage {
 
   function finalAccounting() internal returns (bool) {
     lottos[currentLotto].finished = true;
-    bytes32 _winningTicket = lottos[currentLotto].winningTicket;
-    address[] memory winners = tickets[_winningTicket].owners;
+    assert(safeUserDebtCalculation());
+    return true;
+  }
 
-    uint _winnings = calculateWinnings();
-    uint winningsPerUser = safeUserDebtCalculation(_winnings, _winningTicket);
+  function safeUserDebtCalculation() internal returns (bool) {
+    bytes32 winningTicket = lottos[currentLotto].winningTicket;
+    uint winnings = lottos[currentLotto].totalPot;
+
+    uint winnerCount = tickets[winningTicket].owners.length;
+    uint winningsPerUser = (winnings / winnerCount);
+
+    address[] memory winners = tickets[winningTicket].owners;
 
     for (uint i = 0; i < winners.length; i++) {
       debtToUser[winners[i]] += winningsPerUser;
@@ -82,26 +110,43 @@ contract BaseLottery is RevenueStream, UtilityPackage {
     return true;
   }
 
-  function safeUserDebtCalculation(uint winnings, bytes32 winningTicket) internal returns (uint) {
-    uint winnerCount = tickets[winningTicket].owners.length;
-    uint rake = lottos[currentLotto].totalPot - winnings;
-    debtToUser[feeRecipient] += rake;
-    uint _winningsPerUser = (winnings / winnerCount);
-    return _winningsPerUser;
+  function _safePay() internal returns (uint) {
+    uint _winnings = debtToUser[_sender()];
+    debtToUser[_sender()] = 0;
+    return _winnings;
+  }
+
+  function _enter(uint _toPot) internal returns (bool) {
+    ticketCounter++;
+    totalValuePlayed += ticketPrice;
+    lottos[currentLotto].totalPot += _toPot;
+    bytes32 ticketID = createNewTicket();
+    userTickets[currentLotto][_sender()].push(ticketID);
+
+    emit newEntry(_sender(), ticketID, lottos[currentLotto].totalPot);
+    return true;
+  }
+
+  function _draw() internal returns (bool) {
+    bytes32 _winner = selectWinningTicket();
+
+    if (_winner == bytes32(0)) {
+      currentDraw++;
+      emit newDraw(false, _winner);
+      return false;
+    } else {
+      lottos[currentLotto].winningTicket = _winner;
+      finalAccounting();
+      resetGame();
+      emit newDraw(true, _winner);
+      return true;
+    }
   }
 
   function generateTicketNumber() internal view returns (uint) {
     uint _rando = generateRandomNumber();
     uint _ticketNumber = _rando % winChance;
     return _ticketNumber;
-  }
-
-  function calculateWinnings() internal view returns (uint) {
-    uint total = lottos[currentLotto].totalPot;
-    uint _rake = feeCalc(total);
-    uint _winnings = total - _rake;
-    assert(_winnings < lottos[currentLotto].totalPot);
-    return _winnings;
   }
 
   function generateTicketID(uint _ticketNumber) internal view returns (bytes32) {
