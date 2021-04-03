@@ -11,7 +11,7 @@ import "./Base/LotteryLogic.sol";
 import "./Interfaces/IERC20Lottery.sol";
 import "./Interfaces/IERC20.sol";
 
-contract ERC20Lottery is IERC20Lottery, BaseLottery {
+contract ERC20Lottery is IERC20Lottery, BaseLottery, RevenueStream {
 
   address public tokenAddress;
 
@@ -26,91 +26,113 @@ contract ERC20Lottery is IERC20Lottery, BaseLottery {
     startNewRound();
   }
 
-  function enter() public override returns (bytes32) {
-    require (lottos[currentLotto].finished == false, "a winner has already been selected. please start a new lottery.");
+  function enter() public override returns (bool) {
+    require (IERC20(tokenAddress).balanceOf(_sender()) >= ticketPrice, "not enough tokens to enter");
 
-    IERC20(tokenAddress).transferFrom(_sender(), address(this), ticketPrice);
-    ticketCounter++;
-    lottos[currentLotto].totalPot += ticketPrice;
-    bytes32 ticketID = createNewTicket();
-    userTickets[currentLotto][_sender()].push(ticketID);
+    uint toPot = beforeEachEnter();
+    _enter(toPot);
 
-    emit newEntry(_sender(), ticketID, lottos[currentLotto].totalPot);
-    return ticketID;
+    return true;
   }
 
-  function draw() public override returns (bytes32) {
-    require (readyToDraw(), "Not enough time elapsed from last draw");
-    require (!lottos[currentLotto].finished, "current lottery is over. please start a new one.");
-    lottos[currentLotto].lastDraw = _timestamp();
-    bytes32 winner = selectWinningTicket();
+  function draw() public override returns (bool) {
+    require (readyToDraw(), "not enough time has elapsed since last draw");
 
-    if (winner == bytes32(0)) {
-      currentDraw++;
-      emit newDraw(false, winner);
-      return winner;
-    } else {
-      lottos[currentLotto].winningTicket = winner;
-      finalAccounting();
-      resetGame();
-      emit newDraw(true, winner);
-      return winner;
-    }
+    beforeEachDraw();
+    _draw();
+
+    return true;
   }
 
   function getPaid() public override returns (bool) {
-    require(debtToUser[_sender()] != 0, "you have no winnings to claim");
+    require(debtToUser[_sender()] != 0, "you are not owed any money");
 
-    uint winnings = debtToUser[_sender()];
-    debtToUser[_sender()] = 0;
+    beforeEachPayment();
+    uint winnings = _safePay();
     IERC20(tokenAddress).transfer(_sender(), winnings);
-    assert(debtToUser[_sender()] == 0);
+
     emit newPayment(_sender(), winnings);
-
     return true;
   }
 
-  function startNewRound() internal returns (bool) {
-    if(currentLotto > 0) {
-      require(lottos[currentLotto].finished, "previous lottery has not finished");
-    }
-    currentLotto++;
-    lottos[currentLotto] = Lottery(_timestamp(), _timestamp(), 0, bytes32(0), false);
-    emit newRound(currentLotto);
+  /*
+  + Hooks
+  */
+
+  function beforeEachEnter() internal returns (uint) {
+    uint amountAfterFee = takeERC20Fee(tokenAddress, ticketPrice);
+    IERC20(tokenAddress).transferFrom(_sender(), address(this), ticketPrice);
+    return amountAfterFee;
+  }
+
+  function beforeEachDraw() internal returns (bool) {
+    lottos[currentLotto].lastDraw = _timestamp();
     return true;
   }
 
-  function resetGame() internal returns (bool) {
-    currentDraw = 0;
-    ticketCounter = 0;
-    startNewRound();
-    return true;
+  function beforeEachPayment() internal returns (bool) { }
+
+  /*
+  + View Functions
+  */
+
+  function viewTokenAddress() public view override returns (address) {
+    return tokenAddress;
   }
 
-  function readyToDraw() public view override returns (bool) {
-    return (_timestamp() - lottos[currentLotto].lastDraw >= drawFrequency);
+  function viewName() public view override returns (string memory) {
+    return name;
+  }
+
+  function viewDrawFrequency() public view override returns (uint) {
+    return drawFrequency;
+  }
+
+  function viewTicketPrice() public view override returns (uint) {
+    return ticketPrice;
+  }
+
+  function viewWinChance() public view override returns (uint) {
+    return (winChance);
+  }
+
+  function viewCurrentLottery() public view override returns (uint) {
+    return currentLotto;
+  }
+
+  function viewTicketHolders(bytes32 ticketID) public view override returns (address[] memory) {
+    return tickets[ticketID].owners;
+  }
+
+  function viewTicketNumber(bytes32 ticketID) public view override returns (uint) {
+    return tickets[ticketID].ticketNumber;
+  }
+
+  function viewStartTime(uint lottoNumber) public view override returns (uint) {
+    return lottos[lottoNumber].startTime;
+  }
+
+  function viewLastDrawTime(uint lottoNumber) public view override returns (uint) {
+    return lottos[lottoNumber].lastDraw;
+  }
+
+  function viewTotalPot(uint lottoNumber) public view override returns (uint) {
+    return lottos[lottoNumber].totalPot;
+  }
+
+  function viewWinningTicket(uint lottoNumber) public view override returns (bytes32) {
+    return lottos[lottoNumber].winningTicket;
+  }
+
+  function viewUserTicketList(uint lottoNumber) public view override returns (bytes32[] memory) {
+    return userTickets[lottoNumber][msg.sender];
   }
 
   function viewWinnings() public view override returns (uint) {
     return debtToUser[_sender()];
   }
 
-  function viewTicketNumber(bytes32 _ticketID) public view override returns (uint) {
-    return tickets[_ticketID].ticketNumber;
+  function readyToDraw() public view override returns (bool) {
+    return (_timestamp() - lottos[currentLotto].lastDraw >= drawFrequency);
   }
-
-  function viewTicketHolders(bytes32 _ticketID) public view override returns (address[] memory) {
-    return tickets[_ticketID].owners;
-  }
-
-  function viewTicketsByLotto(uint lottoNumber) public view override returns (bytes32[] memory) {
-    return userTickets[lottoNumber][_sender()];
-  }
-
-  function viewOdds() public view override returns (uint) {
-    return (winChance);
-  }
-
-  function beforeEachEnter() internal returns (bool) { }
-  function beforeEachDraw() internal returns (bool) { }
 }
