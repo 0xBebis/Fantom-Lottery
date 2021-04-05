@@ -79,6 +79,7 @@ contract BaseLottery is UtilityPackage {
     bytes32 _ticketID = generateTicketID(ticketNumber);
 
     if (tickets[_ticketID].owners.length > 0) {
+      require(tickets[_ticketID].owners.length <= 12, "Sorry, invalid ticket number. Please try again.");
       tickets[_ticketID].owners.push(_sender());
       return _ticketID;
     } else {
