@@ -21,7 +21,7 @@ contract FantomLottery is IFantomLottery, BaseLottery, RevenueStream, Reentrancy
     winChance = _winChance;
     fee = _fee;
     feeRecipient = _feeRecipient;
-    startNewRound();
+    _startNewRound();
   }
 
   function enter() public override payable nonReentrant returns (bool) {

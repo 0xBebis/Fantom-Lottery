@@ -49,17 +49,49 @@ contract BaseLottery is UtilityPackage {
   event newDraw(bool winnerSelected, bytes32 winningTicket);
   event newPayment(address user, uint amount);
 
-  function startNewRound() internal returns (bool) {
+  function _startNewRound() internal returns (bool) {
     currentLotto++;
     lottos[currentLotto] = Lottery(_timestamp(), _timestamp(), 0, bytes32(0), false);
     emit newRound(currentLotto);
     return true;
   }
 
+  function _enter(uint _toPot) internal returns (bool) {
+    lottos[currentLotto].lastDraw = _timestamp();
+    ticketCounter++;
+    totalValuePlayed += ticketPrice;
+    lottos[currentLotto].totalPot += _toPot;
+    bytes32 ticketID = createNewTicket();
+    userTickets[currentLotto][_sender()].push(ticketID);
+
+    if (readyToDraw()) {
+      _draw();
+    }
+
+    emit newEntry(_sender(), ticketID, lottos[currentLotto].totalPot);
+    return true;
+  }
+
+  function _draw() internal returns (bool) {
+    bytes32 _winner = selectWinningTicket();
+
+    if (_winner == bytes32(0)) {
+      currentDraw++;
+      emit newDraw(false, _winner);
+      return false;
+    } else {
+      lottos[currentLotto].winningTicket = _winner;
+      finalAccounting();
+      resetGame();
+      emit newDraw(true, _winner);
+      return true;
+    }
+  }
+
   function resetGame() internal returns (bool) {
     currentDraw = 0;
     ticketCounter = 0;
-    startNewRound();
+    _startNewRound();
     return true;
   }
 
@@ -115,38 +147,6 @@ contract BaseLottery is UtilityPackage {
     uint _winnings = debtToUser[_sender()];
     debtToUser[_sender()] = 0;
     return _winnings;
-  }
-
-  function _enter(uint _toPot) internal returns (bool) {
-    lottos[currentLotto].lastDraw = _timestamp();
-    ticketCounter++;
-    totalValuePlayed += ticketPrice;
-    lottos[currentLotto].totalPot += _toPot;
-    bytes32 ticketID = createNewTicket();
-    userTickets[currentLotto][_sender()].push(ticketID);
-
-    if (readyToDraw()) {
-      _draw();
-    }
-
-    emit newEntry(_sender(), ticketID, lottos[currentLotto].totalPot);
-    return true;
-  }
-
-  function _draw() internal returns (bool) {
-    bytes32 _winner = selectWinningTicket();
-
-    if (_winner == bytes32(0)) {
-      currentDraw++;
-      emit newDraw(false, _winner);
-      return false;
-    } else {
-      lottos[currentLotto].winningTicket = _winner;
-      finalAccounting();
-      resetGame();
-      emit newDraw(true, _winner);
-      return true;
-    }
   }
 
   function generateTicketNumber() internal view returns (uint) {
