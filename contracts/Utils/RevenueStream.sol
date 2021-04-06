@@ -8,7 +8,7 @@
 import "../Interfaces/IERC20.sol";
 
 pragma solidity 0.8.0;
-
+//todo implement recipient change
 contract RevenueStream {
 
   uint public fee;

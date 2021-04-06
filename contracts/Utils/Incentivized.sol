@@ -23,4 +23,5 @@ contract Incentivized {
     return true;
   }
 
+
 }
