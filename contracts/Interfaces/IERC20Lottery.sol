@@ -8,7 +8,6 @@
 pragma solidity 0.8.0;
 
 interface IERC20Lottery {
-  function draw() external returns (bool);
   function enter() external returns (bool);
   function getPaid() external returns (bool);
 
@@ -26,5 +25,4 @@ interface IERC20Lottery {
   function viewWinningTicket(uint lottoNumber) external view returns (bytes32);
   function viewUserTicketList(uint lottoNumber) external view returns (bytes32[] memory);
   function viewWinnings() external view returns (uint);
-  function readyToDraw() external view returns (bool);
 }

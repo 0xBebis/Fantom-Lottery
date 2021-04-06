@@ -35,15 +35,6 @@ contract ERC20Lottery is IERC20Lottery, BaseLottery, RevenueStream {
     return true;
   }
 
-  function draw() public override returns (bool) {
-    require (readyToDraw(), "not enough time has elapsed since last draw");
-
-    beforeEachDraw();
-    _draw();
-
-    return true;
-  }
-
   function getPaid() public override returns (bool) {
     require(debtToUser[_sender()] != 0, "you are not owed any money");
 
@@ -63,11 +54,6 @@ contract ERC20Lottery is IERC20Lottery, BaseLottery, RevenueStream {
     uint amountAfterFee = takeERC20Fee(tokenAddress, ticketPrice);
     IERC20(tokenAddress).transferFrom(_sender(), address(this), ticketPrice);
     return amountAfterFee;
-  }
-
-  function beforeEachDraw() internal returns (bool) {
-    lottos[currentLotto].lastDraw = _timestamp();
-    return true;
   }
 
   function beforeEachPayment() internal returns (bool) { }

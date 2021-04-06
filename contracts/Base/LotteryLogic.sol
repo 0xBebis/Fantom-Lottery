@@ -118,11 +118,16 @@ contract BaseLottery is UtilityPackage {
   }
 
   function _enter(uint _toPot) internal returns (bool) {
+    lottos[currentLotto].lastDraw = _timestamp();
     ticketCounter++;
     totalValuePlayed += ticketPrice;
     lottos[currentLotto].totalPot += _toPot;
     bytes32 ticketID = createNewTicket();
     userTickets[currentLotto][_sender()].push(ticketID);
+
+    if (readyToDraw()) {
+      _draw();
+    }
 
     emit newEntry(_sender(), ticketID, lottos[currentLotto].totalPot);
     return true;
@@ -157,5 +162,9 @@ contract BaseLottery is UtilityPackage {
 
   function generateRandomNumber() internal view returns (uint) {
     return (uint(keccak256(abi.encodePacked(block.timestamp, block.number, ticketCounter))));
+  }
+
+  function readyToDraw() public virtual view returns (bool) {
+    return (_timestamp() - lottos[currentLotto].lastDraw >= drawFrequency);
   }
 }

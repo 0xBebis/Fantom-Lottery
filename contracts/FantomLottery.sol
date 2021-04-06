@@ -33,15 +33,6 @@ contract FantomLottery is IFantomLottery, BaseLottery, RevenueStream, Reentrancy
     return true;
   }
 
-  function draw() public override nonReentrant returns (bool) {
-    require (readyToDraw(), "not enough time has elapsed since last draw");
-
-    beforeEachDraw();
-    _draw();
-
-    return true;
-  }
-
   function getPaid() public override nonReentrant returns (bool) {
     require(debtToUser[_sender()] != 0, "you have no winnings to claim");
 
@@ -59,11 +50,6 @@ contract FantomLottery is IFantomLottery, BaseLottery, RevenueStream, Reentrancy
   function beforeEachEnter() internal returns (uint) {
     uint amountAfterFee = takeFantomFee(ticketPrice);
     return amountAfterFee;
-  }
-
-  function beforeEachDraw() internal returns (bool) {
-    lottos[currentLotto].lastDraw = _timestamp();
-    return true;
   }
 
   function beforeEachPayment() internal returns (bool) { }
