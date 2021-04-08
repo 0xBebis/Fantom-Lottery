@@ -61,6 +61,12 @@ contract RevenueStream {
     return true;
   }
 
+  function changeRecipient(address newRecipient) public returns (bool) {
+    require(msg.sender == feeRecipient, "You are not the fee recipient");
+    feeRecipient = newRecipient;
+    return true;
+  }
+
   function viewFantomCollected() public view returns (uint) {
     return fantomDebtToRecipient;
   }

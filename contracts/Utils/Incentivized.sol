@@ -10,17 +10,44 @@ import "../Interfaces/IERC20.sol";
 
 contract Incentivized {
 
-  address public incentiveToken;
-  uint public amountPerEntry;
+  mapping (address => uint) public incentiveTokens;
+  mapping (address => uint) public incentiveAmounts;
+  mapping (address => uint) public incentivesPerEpoch;
+  mapping (address => uint) public incentivesThisEpoch;
 
-  constructor(address _incentiveToken, uint _amountPerEntry) {
-    incentiveToken = _incentiveToken;
-    amountPerEntry = _amountPerEntry;
+  mapping (address => bool) public administrators;
+
+  address public activeTokens;
+
+  constructor () {
+    administrators[msg.sender] = true;
   }
 
-  function fund(uint _amount) public returns (bool) {
-    IERC20(incentiveToken).transferFrom(msg.sender, address(this), _amount);
+  function fund(
+    uint amount,
+    address incentiveToken,
+    address tokensPerPayout,
+    address availableIncentivesPerEpoch,
+    address tokenIndex
+  ) public returns (bool) {
+    require(administrators[msg.sender], "you are not authorized to fund this contract")
+    IERC20(tokenAddress).transferFrom(msg.sender, address(this), amount);
+    incentiveTokens[incentiveToken] += amount;
+    incentiveAmounts[incentiveToken] = tokensPerPayout;
+    incentivesPerLottery[incentiveToken] = incentivesPerLottery;
+    availableTokens.push(incentiveToken);
     return true;
+  }
+
+  function incentivize(address user) internal returns (bool) {
+
+    for (i=0; i<10; i++) {
+      IERC20(activeTokens[i]).transfer(user, incentiveAmounts[activeTokens[i]]);
+    }
+  }
+
+  function approveAdministrator(address newAdmin) public returns (bool) {
+
   }
 
 
