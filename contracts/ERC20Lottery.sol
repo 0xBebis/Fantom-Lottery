@@ -114,6 +114,15 @@ contract ERC20Lottery is IERC20Lottery, BaseLottery, RevenueStream {
     return userTickets[lottoNumber][msg.sender];
   }
 
+  function viewLastEntry() public view override returns (bytes32) {
+    uint length = userTickets[currentLotto][_sender()].length;
+    if (length == 0) {
+      return bytes32(0);
+    } else {
+      return userTickets[currentLotto][_sender()][length-1];
+    }
+  }
+
   function viewWinnings() public view override returns (uint) {
     return debtToUser[_sender()];
   }

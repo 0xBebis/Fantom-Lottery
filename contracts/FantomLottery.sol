@@ -103,7 +103,16 @@ contract FantomLottery is IFantomLottery, BaseLottery, RevenueStream, Reentrancy
   }
 
   function viewUserTicketList(uint lottoNumber) public view override returns (bytes32[] memory) {
-    return userTickets[lottoNumber][msg.sender];
+    return userTickets[lottoNumber][_sender()];
+  }
+
+  function viewLastEntry() public view override returns (bytes32) {
+    uint length = userTickets[currentLotto][_sender()].length;
+    if (length == 0) {
+      return bytes32(0);
+    } else {
+      return userTickets[currentLotto][_sender()][length-1];
+    }
   }
 
   function viewWinnings() public view override returns (uint) {

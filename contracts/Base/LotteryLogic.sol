@@ -61,14 +61,14 @@ contract BaseLottery is UtilityPackage {
     ticketCounter++;
     totalValuePlayed += ticketPrice;
     lottos[currentLotto].totalPot += _toPot;
-    bytes32 ticketID = createNewTicket();
-    userTickets[currentLotto][_sender()].push(ticketID);
+    bytes32 _ticketID = createNewTicket();
+    userTickets[currentLotto][_sender()].push(_ticketID);
 
     if (readyToDraw()) {
       _draw();
     }
 
-    emit newEntry(_sender(), ticketID, lottos[currentLotto].totalPot);
+    emit newEntry(_sender(), _ticketID, lottos[currentLotto].totalPot);
     return true;
   }
 
