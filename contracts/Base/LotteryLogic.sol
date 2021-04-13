@@ -23,16 +23,18 @@ import "../Utils/UtilityPackage.sol";
 contract BaseLottery is UtilityPackage {
 
   string public name;
+  address public admin;
 
   uint public drawFrequency;
   uint public ticketPrice;
   uint public winChance;
 
-  uint public currentLotto = 0;
-  uint public currentDraw = 0;
-  uint public ticketCounter = 0;
+  uint public currentLotto;
+  uint public currentDraw;
+  uint public ticketCounter;
 
-  uint public totalValuePlayed = 0;
+  bool public paused = false;
+  uint public pauseTime;
 
   struct Ticket {
     address[] owners;
@@ -49,7 +51,12 @@ contract BaseLottery is UtilityPackage {
   event newDraw(bool winnerSelected, bytes32 winningTicket);
   event newPayment(address user, uint amount);
 
+  /*modifier onlyAdmin() {
+    require(_sender() == admin, "restricted function");
+  }*/
+
   function _startNewRound() internal returns (bool) {
+    require(!paused, "Game is paused by administrator");
     currentLotto++;
     lottos[currentLotto] = Lottery(_timestamp(), _timestamp(), 0, bytes32(0), false);
     emit newRound(currentLotto);
@@ -57,14 +64,13 @@ contract BaseLottery is UtilityPackage {
   }
 
   function _enter(uint _toPot) internal returns (bool) {
-    lottos[currentLotto].lastDraw = _timestamp();
-    ticketCounter++;
-    totalValuePlayed += ticketPrice;
+    require(!paused, "Game is paused by administrator");
     lottos[currentLotto].totalPot += _toPot;
     bytes32 _ticketID = createNewTicket();
+    ticketCounter++;
     userTickets[currentLotto][_sender()].push(_ticketID);
 
-    if (readyToDraw()) {
+    if (readyToDraw() /*&& autoDraw*/) {
       _draw();
     }
 
@@ -73,6 +79,7 @@ contract BaseLottery is UtilityPackage {
   }
 
   function _draw() internal returns (bool) {
+    lottos[currentLotto].lastDraw = _timestamp();
     bytes32 _winner = selectWinningTicket();
 
     if (_winner == bytes32(0)) {
@@ -164,7 +171,11 @@ contract BaseLottery is UtilityPackage {
     return (uint(keccak256(abi.encodePacked(block.timestamp, block.number, ticketCounter))));
   }
 
-  function readyToDraw() public virtual view returns (bool) {
+  function pauseAndRefund() public returns (bool) {
+
+  }
+
+  function readyToDraw() public view returns (bool) {
     return (_timestamp() - lottos[currentLotto].lastDraw >= drawFrequency);
   }
 }

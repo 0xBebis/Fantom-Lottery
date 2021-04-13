@@ -5,6 +5,8 @@ describe("Lottery", function () {
   let Lotto;
   let lottery;
   let ticketPrice = ethers.utils.parseEther("1");
+  let bigFee = ethers.utils.parseEther('0.5');
+  let littleFee = ethers.utils.parseEther('0.05');
   let owner;
   let addr1;
   let addr2;
@@ -13,127 +15,176 @@ describe("Lottery", function () {
   let addrs;
 
   beforeEach(async function () {
-    Lotto = await ethers.getContractFactory("FantomLotteryHelper");
+    Lotto = await ethers.getContractFactory("FantomLottery");
     [owner, addr1, addr2, addr3, addr4, ...addrs] = await ethers.getSigners();
-    lottery = await Lotto.deploy();
   });
 //{ value: ethers.utils.parseEther("1") }
   describe("Starting a new lottery", function () {
+    it("should initiate the lottery with proper name", async function () {
+      lottery = await Lotto.deploy("bigmoneygetterLottery", 6, ticketPrice, 45, 0, owner.address);
+      expect(await lottery.viewName()).to.equal("bigmoneygetterLottery");
+    });
+    it("should initiate the lottery with proper draw frequency", async function () {
+      lottery = await Lotto.deploy("bigmoneygetterLottery", 6, ticketPrice, 45, 0, owner.address);
+      expect(await lottery.viewDrawFrequency()).to.equal(6);
+    });
+    it("should initiate the lottery with proper ticket price", async function () {
+      lottery = await Lotto.deploy("bigmoneygetterLottery", 6, ticketPrice, 45, 0, owner.address);
+      expect(await lottery.viewTicketPrice()).to.equal(ticketPrice);
+    });
+    it("should initiate the lottery with proper win chance", async function () {
+      lottery = await Lotto.deploy("bigmoneygetterLottery", 6, ticketPrice, 45, 0, owner.address);
+      expect(await lottery.viewWinChance()).to.equal(45);
+    });
+    it("should initiate the lottery with 0 in the pot", async function () {
+      lottery = await Lotto.deploy("bigmoneygetterLottery", 6, ticketPrice, 45, 0, owner.address);
+      expect(await lottery.viewWinChance()).to.equal(45);
+    });
+    it("should initiate the lottery with proper win chance", async function () {
+      lottery = await Lotto.deploy("bigmoneygetterLottery", 6, ticketPrice, 45, 0, owner.address);
+      expect(await lottery.viewWinChance()).to.equal(45);
+    });
+    it("should initiate the lottery with proper fee", async function () {
+      lottery = await Lotto.deploy("bigmoneygetterLottery", 6, ticketPrice, 45, 56, owner.address);
+      expect(await lottery.viewFee()).to.equal(56);
+    });
+    it("should initiate the lottery with proper fee recipient", async function () {
+      lottery = await Lotto.deploy("bigmoneygetterLottery", 6, ticketPrice, 45, 0, owner.address);
+      expect(await lottery.viewFeeRecipient()).to.equal(owner.address);
+    });
     it("should start the lottery, then increment currentLotto", async function () {
-      expect(await lottery.viewLottoNumber()).to.equal(1);
+      lottery = await Lotto.deploy("Lottery", 0, 0, 1, 0, owner.address);
+      expect(await lottery.viewCurrentLottery()).to.equal(1);
+    });
+    it("should start a new lotto when a winner is chosen", async function () {
+      lottery = await Lotto.deploy("Lottery", 0, 0, 1, 0, owner.address);
+      await lottery.enter();
+      expect(await lottery.viewCurrentLottery()).to.equal(2);
+    });
+    it("should emit newRound when the lottery is won", async function () {
+      lottery = await Lotto.deploy("Lottery", 0, 0, 1, 0, owner.address);
+      expect(await lottery.enter()).to.emit(lottery, 'newRound').withArgs(2);
     });
   });
-
-  describe("Entering the lottery", function () {
-    it("should increment ticket counter", async function () {
-      let i;
-      for (i = 1; i <= 10; i++) {
-        await lottery.enter({ value: ticketPrice });
-      }
-      expect(await lottery.viewTicketCount()).to.equal(10);
+  describe("entering the lottery", function () {
+    it("should accept payment", async function () {
+      lottery = await Lotto.deploy("Lottery", 0, ticketPrice, 10000000, 0, owner.address);
+      await lottery.enter({ value: ticketPrice });
+      expect(await lottery.viewTotalPot(1)).to.equal(ticketPrice);
     });
-    it("should add fantom to the total pot", async function () {
-      let i;
-      for (i = 1; i <= 10; i++) {
-        await lottery.enter({ value: ticketPrice });
-        expect(await lottery.viewPot()).to.equal(ethers.utils.parseEther(`${0.97*i}`));
-      }
+    it("should increment total pot with the ticket price", async function () {
+      lottery = await Lotto.deploy("Lottery", 0, ticketPrice, 100000000, 0, owner.address);
+      await lottery.enter({ value: ticketPrice });
+      expect(await lottery.viewTotalPot(1)).to.equal(ticketPrice);
     });
-    it("should create a ticketID and save it to the sender account", async function () {
-      let i;
-      for (i = 0; i < 50; i++) {
-        await lottery.connect(addr1).enter({ value: ticketPrice });
-      }
-      let ticketIDs = await lottery.connect(addr1).viewUserTicketList(1);
-      expect(ticketIDs.length).to.equal(50);
+    it("should take fees if configured to do so", async function () {
+      lottery = await Lotto.deploy("Lottery", 0, 100, 100000000, littleFee, owner.address);
+      await lottery.enter({ value: 100 });
+      expect(await lottery.viewTotalPot(1)).to.equal(95);
+      await lottery.enter({ value: 100 });
+      expect(await lottery.viewTotalPot(1)).to.equal(190);
+    });
+    it("should credit those fees to recipient's account", async function () {
+      lottery = await Lotto.deploy("Lottery", 0, 100, 100000000, bigFee, owner.address);
+      await lottery.enter({ value: 100 });
+      expect(await lottery.viewFantomCollected()).to.equal(50);
+      await lottery.enter({ value: 100 });
+      expect(await lottery.viewFantomCollected()).to.equal(100);
+    });
+    it("should increment the ticket counter", async function () {
+      lottery = await Lotto.deploy("Lottery", 0, 0, 1000000000, 0, owner.address);
+      await lottery.enter();
+      expect(await lottery.viewTicketCount()).to.equal(1);
+      await lottery.enter();
+      expect(await lottery.viewTicketCount()).to.equal(2);
+    });
+    it("should push the ticket ID onto user's ticket list", async function () {
+      lottery = await Lotto.deploy("Lottery", 0, 0, 1000000000, 0, owner.address);
+      await lottery.enter();
+      let ticketArray = await lottery.viewUserTicketList(1);
+      let lastEntry = await lottery.viewLastEntry(1);
+      expect(ticketArray.length).to.equal(1);
+      expect(ticketArray[0]).to.equal(lastEntry);
+      await lottery.enter();
+      ticketArray = await lottery.viewUserTicketList(1);
+      lastEntry = await lottery.viewLastEntry(1);
+      expect(ticketArray.length).to.equal(2);
+      expect(ticketArray[1]).to.equal(lastEntry);
+    });
+    it("should draw when able after entry", async function () {
+      lottery = await Lotto.deploy("Lottery", 0, 0, 1, 0, owner.address);
+      expect(await lottery.enter()).to.emit(lottery, 'newDraw');
+    });
+    it("should emit a newEntry event", async function () {
+      lottery = await Lotto.deploy("Lottery", 0, 0, 1, 0, owner.address);
+      expect(await lottery.enter()).to.emit(lottery, 'newEntry');
     });
   });
   describe("drawing a ticket", function () {
-    it("should update lastDraw to the current timestamp", async function () {
-      const initialLast = await lottery.viewLast();
-      await lottery.draw();
-      const newLast = await lottery.viewLast();
-      expect(newLast).to.not.equal(initialLast);
+    it("should update the last draw timestamp", async function () {
+      lottery = await Lotto.deploy("Lottery", 0, 0, 10000000, 0, owner.address);
+      const initialDrawTime = await lottery.viewStartTime(1);
+      await lottery.enter();
+      expect(initialDrawTime).to.not.equal(await lottery.viewLastDrawTime(1));
     });
-    it("should update the current draw variable, or set to 0 if someone wins", async function () {
-      let i;
-      console.log("===========Running Lottery===========")
-      for (i = 1; i <= 100; i++) {
-        await lottery.enter({ value: ticketPrice });
-        await lottery.draw();
-        if (await lottery.didSomeoneWin() == true) {
-          expect(await lottery.viewCurrentDraw()).to.equal(0);
-          const winner = await lottery.viewWinner();
-          console.log(`Winner, out of ${i} draws: ${winner}`);
-          break;
-        } else {
-          expect(await lottery.viewCurrentDraw()).to.equal(i);
-        }
-      }
-      console.log("=====================================")
+    it("should increment the current draw if there's no winner", async function () {
+      lottery = await Lotto.deploy("Lottery", 0, 0, 10000000, 0, owner.address);
+      await lottery.enter();
+      let drawNumber = await lottery.viewCurrentDraw();
+      expect(drawNumber).to.equal(1);
+      await lottery.enter();
+      drawNumber = await lottery.viewCurrentDraw();
+      expect(drawNumber).to.equal(2);
     });
-    it("should distribute the pot to each winner and take fee", async function () {
-      let i;
-      for (i = 1; i <= 10; i++) {
-        await lottery.connect(addr1).enter({ value: ticketPrice });
-        await lottery.connect(addr2).enter({ value: ticketPrice });
-        await lottery.connect(addr3).enter({ value: ticketPrice });
-        await lottery.connect(addr4).enter({ value: ticketPrice });
-      }
-        const totalPot = await lottery.viewPot();
-        console.log(`Total pot: ${totalPot.toString()}`);
-        await lottery.draw();
-        const winningTicket = await lottery.viewWinner();
-        console.log(`Winning ticket ID: ${winningTicket}`);
-        const winners = await lottery.viewTicketHolders(winningTicket);
-        console.log(`Winning addresses: ${winners}`);
-        for (i=0; i<winners.length; i++) {
-          let reward = await lottery.viewWinningsByAddress(winners[i]);
-          console.log(`Winnings for ${winners[i]}: ${reward.toString()}`);
-        }
-        const rake = await lottery.viewFantomCollected();
-        console.log(`Fees collected: ${rake.toString()}`);
-        expect(rake).to.equal(ethers.utils.parseEther(`${40*0.03}`));
-        expect(totalPot).to.equal(ethers.utils.parseEther(`${40*0.97}`));
+    it("should update the lottery when there's a winner", async function () {
+      lottery = await Lotto.deploy("Lottery", 0, 0, 1, 0, owner.address);
+      await lottery.enter();
+      const winner = await lottery.viewUserTicketList(1);
+      expect(await lottery.viewWinningTicket(1)).to.equal(winner[0]);
     });
-    it("should allow the user to withdraw funds", async function () {
-      let i;
-      console.log("===========Running Lottery===========")
-      for (i = 1; i <= 100; i++) {
-        await lottery.connect(addr1).enter({ value: ticketPrice });
-        await lottery.draw();
-        if (await lottery.didSomeoneWin() == true) {
-          const winner = await lottery.viewWinner();
-          console.log(`Winner, out of ${i} draws: ${winner}`);
-          break;
-        }
-      }
-      console.log("=====================================")
-      const firstBalance = ethers.BigNumber.from(await addr1.getBalance());
-      console.log(typeof firstBalance);
-      console.log(`Initial Balance: ${firstBalance.toString()}`);
-      const pot = await lottery.viewLastPot();
-      console.log(`Pot: ${pot.toString()}`);
-      const ownerDebt = await lottery.viewFantomCollected();
-      const userDebt = await lottery.connect(addr1).viewWinnings();
-      console.log(`User account balance: ${userDebt.toString()}`);
-      console.log(`Fee recipient account balance: ${ownerDebt.toString()}`)
-
-      const tx = await lottery.connect(addr1).getPaid();
-      const price = parseInt(tx.gasPrice);
-      console.log(`Gas Price: ${price.toString()}`)
-      const receipt = await tx.wait();
-      const gas = parseInt(receipt.gasUsed);
-      console.log(`Gas Used to get paid: ${gas.toString()}`);
-      const totalGas = gas*price;
-      console.log(`Gas Costs: ${totalGas.toString()}`);
-
-      const newBalance = parseInt(await addr1.getBalance());
-      console.log(`New Balance: ${newBalance.toString()}`)
-      const winnings = (pot-totalGas);
-      const expectedBalance = parseInt(firstBalance) + parseInt(winnings);
-      console.log(`Expected Balance: ${expectedBalance.toString()}`);
-      expect(newBalance).to.equal(expectedBalance);
+    it("should update the lottery when there's a winner", async function () {
+      lottery = await Lotto.deploy("Lottery", 0, 0, 1, 0, owner.address);
+      await lottery.enter();
+      const winner = await lottery.viewUserTicketList(1);
+      expect(await lottery.viewWinningTicket(1)).to.equal(winner[0]);
+    });
+  });
+  describe("Starting a new game", function () {
+    it("should update the current lottery", async function () {
+      lottery = await Lotto.deploy("Lottery", 0, 0, 1, 0, owner.address);
+      expect(await lottery.viewCurrentLottery()).to.equal(1);
+      lottery.enter();
+      expect(await lottery.viewCurrentLottery()).to.equal(2);
+    });
+    it("should update the ticket counter to 0", async function () {
+      lottery = await Lotto.deploy("Lottery", 0, 0, 1, 0, owner.address);
+      expect(await lottery.viewTicketCount()).to.equal(0);
+      lottery.enter();
+      expect(await lottery.viewTicketCount()).to.equal(0);
+    });
+    it("should update the current draw", async function () {
+      lottery = await Lotto.deploy("Lottery", 0, 0, 1, 0, owner.address);
+      expect(await lottery.viewCurrentDraw()).to.equal(0);
+      lottery.enter();
+      expect(await lottery.viewTicketCount()).to.equal(0);
+    });
+    it("should instantiate a new lottery and finish the last", async function () {
+      lottery = await Lotto.deploy("Lottery", 0, ticketPrice, 1, 0, owner.address);
+      let startTime = await lottery.viewStartTime(1);
+      await lottery.enter({ value: ticketPrice });
+      expect(await lottery.viewCurrentLottery()).to.equal(2);
+      expect(await lottery.viewStartTime(2)).to.not.equal(startTime);
+      expect(await lottery.viewTotalPot(2)).to.equal(0);
+      expect(await lottery.isFinished(1)).to.equal(true);
+      expect(await lottery.isFinished(2)).to.equal(false);
+    });
+  });
+  describe("getting paid", function () {
+    it("should allow you to claim", async function () {
+      lottery = await Lotto.deploy("Lottery", 0, ticketPrice, 1, 0, owner.address);
+      await lottery.enter({ value: ticketPrice });
+      expect(await lottery.viewWinnings()).to.equal(ethers.utils.parseEther("1"));
+      await expect(() => lottery.getPaid()).to.changeEtherBalance(owner, ticketPrice);
     });
   });
 });

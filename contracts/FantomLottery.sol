@@ -78,6 +78,22 @@ contract FantomLottery is IFantomLottery, BaseLottery, RevenueStream, Reentrancy
     return currentLotto;
   }
 
+  function viewTicketCount() public view override returns (uint) {
+    return ticketCounter;
+  }
+
+  function viewCurrentDraw() public view override returns (uint) {
+    return currentDraw;
+  }
+
+  function viewFee() public view override returns (uint) {
+    return fee;
+  }
+
+  function viewFeeRecipient() public view override returns (address) {
+    return feeRecipient;
+  }
+
   function viewTicketHolders(bytes32 ticketID) public view override returns (address[] memory) {
     return tickets[ticketID].owners;
   }
@@ -106,20 +122,20 @@ contract FantomLottery is IFantomLottery, BaseLottery, RevenueStream, Reentrancy
     return userTickets[lottoNumber][_sender()];
   }
 
-  function viewLastEntry() public view override returns (bytes32) {
-    uint length = userTickets[currentLotto][_sender()].length;
+  function isFinished(uint lottoNumber) public view override returns (bool) {
+    return lottos[lottoNumber].finished;
+  }
+
+  function viewLastEntry(uint lottoNumber) public view override returns (bytes32) {
+    uint length = userTickets[lottoNumber][_sender()].length;
     if (length == 0) {
       return bytes32(0);
     } else {
-      return userTickets[currentLotto][_sender()][length-1];
+      return userTickets[lottoNumber][_sender()][length-1];
     }
   }
 
   function viewWinnings() public view override returns (uint) {
     return debtToUser[_sender()];
-  }
-
-  function readyToDraw() public view override returns (bool) {
-    return (_timestamp() - lottos[currentLotto].lastDraw >= drawFrequency);
   }
 }
