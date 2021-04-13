@@ -30,5 +30,4 @@ interface IFantomLottery {
   function viewUserTicketList(uint lottoNumber) external view returns (bytes32[] memory);
   function viewLastEntry(uint lottoNumber) external view returns (bytes32);
   function viewWinnings() external view returns (uint);
-  //function readyToDraw() external view returns (bool);
 }
