@@ -142,12 +142,6 @@ describe("Lottery", function () {
       const winner = await lottery.viewUserTicketList(1);
       expect(await lottery.viewWinningTicket(1)).to.equal(winner[0]);
     });
-    it("should update the lottery when there's a winner", async function () {
-      lottery = await Lotto.deploy("Lottery", 0, 0, 1, 0, owner.address);
-      await lottery.enter();
-      const winner = await lottery.viewUserTicketList(1);
-      expect(await lottery.viewWinningTicket(1)).to.equal(winner[0]);
-    });
   });
   describe("Starting a new game", function () {
     it("should update the current lottery", async function () {
