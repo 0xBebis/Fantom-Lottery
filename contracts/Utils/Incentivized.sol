@@ -10,45 +10,60 @@ import "../Interfaces/IERC20.sol";
 
 contract Incentivized {
 
-  uint public currentEpoch;
-
+  uint currentEpoch;
   //epochs can be implemented in your project in any fashion
   struct Incentive {
     address token;
     uint amount;
     uint startingEpoch;
-    uint amountPerEpoch;
-    uint lengthInEpochs;
+    uint claimsPerEpoch;
     uint claimedThisEpoch;
-    uint uniqueClaimants;
+    uint lengthInEpochs;
     bool isPaused;
   }
 
+  uint public incentiveCounter;
   mapping (uint => Incentive) public incentives;
-
   mapping (address => bool) public administrators;
 
   constructor () {
     administrators[msg.sender] = true;
   }
-/*
+
   function createNewIncentiveStrategy(
     address _token,
     uint _amount,
     address _startingEpoch,
-    address _amountPerEpoch,
+    address _claimsPerEpoch,
     address _lengthInEpochs
   ) public
     returns (bool) {
+    IERC20(_token).transferFrom(msg.sender, address(this), _amount);
+    incentives[incentiveCounter] = Incentive(_token, _amount, _startingEpoch, _claimsPerEpoch, 0 _lengthInEpochs, false);
+    incentiveCounter++;
     return true;
   }
-*/
-  function incentivize(address user) internal returns (bool) {
+
+  //try to pare down all the requires
+  function incentivize(address user, uint strategy) internal returns (bool) {
+    Incentive memory strat = incentives[strategy];
+    require(currentEpoch >= strat.startingEpoch, "not ready");
+    require(!strat.isPaused, "incentives are paused");
+    require(currentEpoch <= strat.startingEpoch + lengthInEpochs, "too late");
+    require(strat.claimedThisEpoch <= strat.claimsPerEpoch, "no rewards left");
+    IERC20(strat.token).transfer(msg.sender, strat.amount);
+    strat.claimedThisEpoch++;
+    incentives[strategy] = strat;
+  }
+
+  function pauseStrategy(uint strategy) public returns (bool) {
+    require(administrators[msg.sender], "not an admin");
+    incentives[strategy].isPaused == true;
   }
 
   function approveAdministrator(address newAdmin) public returns (bool) {
-
+    require(administrators[msg.sender], "not an admin");
+    administrators[newAdmin] == true;
+    return true;
   }
-
-
 }
