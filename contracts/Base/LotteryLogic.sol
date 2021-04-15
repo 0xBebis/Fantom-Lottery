@@ -51,10 +51,6 @@ contract BaseLottery is UtilityPackage {
   event newDraw(bool winnerSelected, bytes32 winningTicket);
   event newPayment(address user, uint amount);
 
-  /*modifier onlyAdmin() {
-    require(_sender() == admin, "restricted function");
-  }*/
-
   function _startNewRound() internal returns (bool) {
     require(!paused, "Game is paused by administrator");
     currentLotto++;
@@ -70,7 +66,7 @@ contract BaseLottery is UtilityPackage {
     ticketCounter++;
     userTickets[currentLotto][_sender()].push(_ticketID);
 
-    if (readyToDraw() /*&& autoDraw*/) {
+    if (readyToDraw()) {
       _draw();
     }
 
@@ -112,7 +108,7 @@ contract BaseLottery is UtilityPackage {
       return bytes32(0);
     }
   }
-
+  //test that we can handle 12 winners
   function createNewTicket() internal returns (bytes32) {
     uint ticketNumber = generateTicketNumber();
     bytes32 _ticketID = generateTicketID(ticketNumber);
@@ -131,10 +127,10 @@ contract BaseLottery is UtilityPackage {
 
   function finalAccounting() internal returns (bool) {
     lottos[currentLotto].finished = true;
-    assert(safeUserDebtCalculation());
+    safeUserDebtCalculation();
     return true;
   }
-
+  //stress test the for loop
   function safeUserDebtCalculation() internal returns (bool) {
     bytes32 winningTicket = lottos[currentLotto].winningTicket;
     uint winnings = lottos[currentLotto].totalPot;
@@ -163,7 +159,7 @@ contract BaseLottery is UtilityPackage {
   }
 
   function generateTicketID(uint _ticketNumber) internal view returns (bytes32) {
-    bytes32 _ticketID = keccak256(abi.encodePacked(currentLotto, currentDraw, _ticketNumber));
+    bytes32 _ticketID = keccak256(abi.encodePacked(currentLotto, _ticketNumber));
     return _ticketID;
   }
 
