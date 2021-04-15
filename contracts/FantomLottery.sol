@@ -71,7 +71,7 @@ contract FantomLottery is IFantomLottery, BaseLottery, RevenueStream, Reentrancy
   }
 
   function viewWinChance() public view override returns (uint) {
-    return (winChance);
+    return winChance;
   }
 
   function viewCurrentLottery() public view override returns (uint) {
