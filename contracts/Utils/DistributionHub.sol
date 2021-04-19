@@ -75,6 +75,6 @@ contract DistributionHub is ERC20("GamerCoin", "GAME") {
 
   function voteTime() internal returns (bool) { }
 
-
+  function viewTargetContract(bytes32 proposalId) public returns (bool) { }
 
 }
