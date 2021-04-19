@@ -7,12 +7,13 @@
 pragma solidity 0.8.0;
 
 import "../Interfaces/IERC20.sol";
+import "./UtilityPackage.sol";
 
-contract Incentivized {
+contract IncentiveDistributor is UtilityPackage {
 
   uint currentEpoch;
   //epochs can be implemented in your project in any fashion
-  struct Incentive {
+  struct IncentiveStrategy {
     address token;
     uint amount;
     uint startingEpoch;
@@ -26,11 +27,16 @@ contract Incentivized {
   mapping (uint => Incentive) public incentives;
   mapping (address => bool) public administrators;
 
+  modifier onlyAdmin() {
+    require(administrators[_sender()], "You are not an admin.");
+    _;
+  }
+
   constructor () {
     administrators[msg.sender] = true;
   }
 
-  function createNewIncentiveStrategy(
+  function createIncentiveStrategy(
     address _token,
     uint _amount,
     uint _startingEpoch,
@@ -46,15 +52,20 @@ contract Incentivized {
 
   //try to pare down all the requires
   function incentivize(uint strategy) internal returns (bool) {
-    Incentive memory strat = incentives[strategy];
-    require(currentEpoch >= strat.startingEpoch, "not ready");
-    require(!strat.isPaused, "incentives are paused");
-    require(currentEpoch <= strat.startingEpoch + strat.lengthInEpochs, "too late");
-    require(strat.claimedThisEpoch <= strat.claimsPerEpoch, "no rewards left");
-    IERC20(strat.token).transfer(msg.sender, strat.amount);
-    strat.claimedThisEpoch++;
-    incentives[strategy] = strat;
-    return true;
+    if (incentiveCheck(strategy)) {
+      IERC20(incentives[strategy].token).transfer(msg.sender, incentives[strategy].amount);
+      incentives[strategy].claimedThisEpoch++;
+      return true;
+    } else { return false; }
+  }
+
+  function incentiveCheck(uint _strategy) internal view returns (bool) {
+    if (currentEpoch <= incentives[_strategy].startingEpoch &&
+        !incentives[_strategy].isPaused &&
+        currentEpoch <= (incentives[_strategy].startingEpoch + incentives[_strategy].lengthInEpochs) &&
+        incentives[_strategy].claimedThisEpoch <= incentives[_strategy].claimsPerEpoch) {
+          return true;
+        } else { return false; }
   }
 
   function pauseStrategy(uint strategy) public returns (bool) {
