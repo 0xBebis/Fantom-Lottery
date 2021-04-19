@@ -6,9 +6,11 @@
 
 pragma solidity 0.8.0;
 
+import "../Base/ERC20.sol";
+import "../Interfaces/IERC20.sol";
 import "../Interfaces/IIncentiveDistributor.sol";
 
-contract DistributionHub {
+contract DistributionHub is ERC20("GamerCoin", "GAME") {
 
   uint public totalStaked;
   uint public lockTime;
@@ -29,38 +31,33 @@ contract DistributionHub {
     bool approved;
   }
 
-  struct Vote {
-    uint time;
-    uint weight;
-  }
-
   mapping (address => bool) public approvedProposers;
-  mapping (bytes32 => IncentiveProposal) public proposals;
-  mapping (bytes32 => mapping (address => Vote)) public votes;
+  mapping (bytes32 => Proposal) public proposals;
+  mapping (bytes32 => mapping (address => uint)) public voteTimestamp;
 
   function proposeStrategy(
     address _targetContract,
     uint _amount,
     uint _startingEpoch,
     uint _claimsPerEpoch,
-    uint _lengthInEpochs,
+    uint _lengthInEpochs
   ) public returns (bool) { }
 
-  function executeStrategy(bytes32 Proposal) public returns (bool) {
-    require(IERC20(_token).balanceOf() >= amount, "insufficient token balance");
+  function executeStrategy(bytes32 proposalId) public returns (bool) {
     require(proposals[proposalId].approved, "this proposal has not received approval");
     proposals[proposalId].approved = false;
 
-    Incentiveproposal memory strategy = proposals[proposalId];
-    IERC20(_token)._approve(address(this), strategy.targetContract, strategy.amount);
-    IDistributor distributor = IDistributor(_targetContract);
+    Proposal memory prop = proposals[proposalId];
+    _mint(address(this), prop.amount);
+    _approve(address(this), prop.targetContract, prop.amount);
+    IIncentiveDistributor distributor = IIncentiveDistributor(prop.targetContract);
 
     distributor.createIncentiveStrategy(
       address(this),
-      strategy.amount,
-      strategy.startingEpoch,
-      strategy.claimsPerEpoch,
-      strategy.lengthInEpochs
+      prop.amount,
+      prop.startingEpoch,
+      prop.claimsPerEpoch,
+      prop.lengthInEpochs
     );
 
     return true;

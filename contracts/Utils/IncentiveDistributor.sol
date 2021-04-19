@@ -7,9 +7,10 @@
 pragma solidity 0.8.0;
 
 import "../Interfaces/IERC20.sol";
+import "../Interfaces/IIncentiveDistributor.sol";
 import "./UtilityPackage.sol";
 
-contract IncentiveDistributor is UtilityPackage {
+contract IncentiveDistributor is IIncentiveDistributor, UtilityPackage {
 
   uint currentEpoch;
   //epochs can be implemented in your project in any fashion
@@ -24,7 +25,7 @@ contract IncentiveDistributor is UtilityPackage {
   }
 
   uint public incentiveCounter;
-  mapping (uint => Incentive) public incentives;
+  mapping (uint => IncentiveStrategy) public strategies;
   mapping (address => bool) public administrators;
 
   modifier onlyAdmin() {
@@ -43,9 +44,10 @@ contract IncentiveDistributor is UtilityPackage {
     uint _claimsPerEpoch,
     uint _lengthInEpochs
   ) public
+    override
     returns (bool) {
     IERC20(_token).transferFrom(msg.sender, address(this), _amount);
-    incentives[incentiveCounter] = Incentive(_token, _amount, _startingEpoch, _claimsPerEpoch, 0, _lengthInEpochs, false);
+    strategies[incentiveCounter] = IncentiveStrategy(_token, _amount, _startingEpoch, _claimsPerEpoch, 0, _lengthInEpochs, false);
     incentiveCounter++;
     return true;
   }
@@ -53,24 +55,24 @@ contract IncentiveDistributor is UtilityPackage {
   //try to pare down all the requires
   function incentivize(uint strategy) internal returns (bool) {
     if (incentiveCheck(strategy)) {
-      IERC20(incentives[strategy].token).transfer(msg.sender, incentives[strategy].amount);
-      incentives[strategy].claimedThisEpoch++;
+      IERC20(strategies[strategy].token).transfer(msg.sender, strategies[strategy].amount);
+      strategies[strategy].claimedThisEpoch++;
       return true;
     } else { return false; }
   }
 
   function incentiveCheck(uint _strategy) internal view returns (bool) {
-    if (currentEpoch <= incentives[_strategy].startingEpoch &&
-        !incentives[_strategy].isPaused &&
-        currentEpoch <= (incentives[_strategy].startingEpoch + incentives[_strategy].lengthInEpochs) &&
-        incentives[_strategy].claimedThisEpoch <= incentives[_strategy].claimsPerEpoch) {
+    if (currentEpoch <= strategies[_strategy].startingEpoch &&
+        !strategies[_strategy].isPaused &&
+        currentEpoch <= (strategies[_strategy].startingEpoch + strategies[_strategy].lengthInEpochs) &&
+        strategies[_strategy].claimedThisEpoch <= strategies[_strategy].claimsPerEpoch) {
           return true;
         } else { return false; }
   }
 
   function pauseStrategy(uint strategy) public returns (bool) {
     require(administrators[msg.sender], "not an admin");
-    incentives[strategy].isPaused = true;
+    strategies[strategy].isPaused = true;
     return true;
   }
 
